@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,12 +20,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
+data class BarcodeItem(
+    val id: String = System.currentTimeMillis().toString(),
+    val code: String,
+    val imagePath: String? = null,
+    var isSelected: Boolean = false
+)
+
 @kotlin.OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BarcodeScannerScreen() {
     val context = LocalContext.current
 
-    val barcodeList = remember { mutableStateListOf<String>() }
+    val barcodeList = remember { mutableStateListOf<BarcodeItem>() }
+    val isAllSelected = remember { derivedStateOf { barcodeList.isNotEmpty() && barcodeList.all { it.isSelected } } }
 
     var isCameraOpen by remember { mutableStateOf(false) }
 
@@ -53,17 +62,34 @@ fun BarcodeScannerScreen() {
         }
     }
 
+    val onSelectAllClick = {
+        val newValue = !isAllSelected.value
+        barcodeList.forEach { it.isSelected = newValue }
+    }
+
     Scaffold(
         topBar = {
             if (!isCameraOpen) {
                 TopAppBar(
                     title = { Text("Список штрихкодов") },
                     actions = {
-                        IconButton(onClick = onAddClick) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Добавить штрихкод"
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isAllSelected.value,
+                                onCheckedChange = { onSelectAllClick() },
+                                modifier = Modifier.padding(end = 8.dp)
                             )
+                            Text("Выбрать все")
+                            IconButton(onClick = onAddClick) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Добавить штрихкод"
+                                )
+                            }
                         }
                     }
                 )
@@ -79,14 +105,14 @@ fun BarcodeScannerScreen() {
                 ManualCameraScanView(
                     scannedCount = barcodeList.size,
                     onBarcodeFound = { barcodeValue ->
-                        if (barcodeValue in barcodeList) {
+                        if (barcodeList.any { it.code == barcodeValue }) {
                             Toast.makeText(
                                 context,
                                 "Этот штрихкод уже есть в списке",
                                 Toast.LENGTH_SHORT
                             ).show()
                         } else {
-                            barcodeList.add(0, barcodeValue)
+                            barcodeList.add(0, BarcodeItem(code = barcodeValue))
                         }
                     },
                     onClose = { isCameraOpen = false }
@@ -109,18 +135,34 @@ fun BarcodeScannerScreen() {
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(barcodeList) { code ->
+                        items(barcodeList) { item ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
                             ) {
-                                Text(
-                                    text = code,
-                                    modifier = Modifier.padding(16.dp),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = item.isSelected,
+                                        onCheckedChange = { checked ->
+                                            item.isSelected = checked
+                                        }
+                                    )
+                                    Spacer(Modifier.width(16.dp))
+                                    Text(
+                                        text = item.code,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f),
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                }
                             }
                         }
                     }
