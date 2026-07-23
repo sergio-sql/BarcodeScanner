@@ -2,20 +2,27 @@ package com.sergio.barcodescanner
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -34,6 +41,7 @@ fun BarcodeScannerScreen() {
 
     val barcodeList = remember { mutableStateListOf<BarcodeItem>() }
     val isAllSelected = remember { derivedStateOf { barcodeList.isNotEmpty() && barcodeList.all { it.isSelected } } }
+    var currentImagePath by remember { mutableStateOf<String?>(null) }
 
     var isCameraOpen by remember { mutableStateOf(false) }
 
@@ -162,6 +170,14 @@ fun BarcodeScannerScreen() {
                                             .weight(1f),
                                         style = MaterialTheme.typography.bodyLarge
                                     )
+                                    if (!item.imagePath.isNullOrBlank()) {
+                                        IconButton(onClick = { currentImagePath = item.imagePath }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Visibility,
+                                                contentDescription = "Просмотреть изображение"
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -169,5 +185,33 @@ fun BarcodeScannerScreen() {
                 }
             }
         }
+    }
+
+    currentImagePath?.let { path ->
+        AlertDialog(
+            onDismissRequest = { currentImagePath = null },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { currentImagePath = null }) {
+                    Text("Закрыть")
+                }
+            },
+            title = null,
+            text = {
+                var bitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+                LaunchedEffect(path) {
+                    bitmap = BitmapFactory.decodeFile(path)
+                }
+                bitmap?.let {
+                    Image(
+                        bitmap = it.asImageBitmap(),
+                        contentDescription = "Изображение штрихкода",
+                        modifier = Modifier.fillMaxWidth(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
