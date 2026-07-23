@@ -1,7 +1,7 @@
 package com.sergio.barcodescanner
 
-import android.util.Size
 import android.widget.Toast
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -27,7 +27,6 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 
-@OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @Composable
 fun ManualCameraScanView(
     scannedCount: Int,
@@ -56,7 +55,7 @@ fun ManualCameraScanView(
                     }
 
                     val imageAnalysis = ImageAnalysis.Builder()
-                        .setTargetResolution(Size(1280, 720))
+                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
 
