@@ -2,7 +2,6 @@ package com.sergio.barcodescanner
 
 import android.widget.Toast
 import androidx.annotation.OptIn
-import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -57,7 +56,9 @@ fun ManualCameraScanView(
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx ->
-                val previewView = PreviewView(ctx)
+                val previewView = PreviewView(ctx).apply {
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                }
 
                 cameraProviderFuture.addListener({
                     val cameraProvider = cameraProviderFuture.get()
@@ -67,7 +68,6 @@ fun ManualCameraScanView(
                     }
 
                     val imageAnalysis = ImageAnalysis.Builder()
-                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
 

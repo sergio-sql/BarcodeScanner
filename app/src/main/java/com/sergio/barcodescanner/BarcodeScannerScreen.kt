@@ -107,25 +107,33 @@ fun BarcodeScannerScreen() {
         topBar = {
             if (!isCameraOpen) {
                 TopAppBar(
-                    title = {},
-                    actions = {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(onClick = onSelectAllClick) {
-                                val icon = when (selectAllState.value) {
-                                    SelectAllState.Checked -> Icons.Default.CheckBox
-                                    SelectAllState.Indeterminate -> Icons.Default.IndeterminateCheckBox
-                                    else -> Icons.Default.CheckBoxOutlineBlank
+                    title = {
+                        if (barcodeList.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                IconButton(onClick = onSelectAllClick) {
+                                    val icon = when (selectAllState.value) {
+                                        SelectAllState.Checked -> Icons.Default.CheckBox
+                                        SelectAllState.Indeterminate -> Icons.Default.IndeterminateCheckBox
+                                        else -> Icons.Default.CheckBoxOutlineBlank
+                                    }
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = "Выбрать все"
+                                    )
                                 }
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = "Выбрать все"
-                                )
                             }
-                            if (hasSelection.value) {
+                        }
+                    },
+                    actions = {
+                        if (hasSelection.value) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 IconButton(onClick = onDeleteClick) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
@@ -141,12 +149,12 @@ fun BarcodeScannerScreen() {
                                     )
                                 }
                             }
-                            IconButton(onClick = onAddClick) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Добавить штрихкод"
-                                )
-                            }
+                        }
+                        IconButton(onClick = onAddClick) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Добавить штрихкод"
+                            )
                         }
                     }
                 )
