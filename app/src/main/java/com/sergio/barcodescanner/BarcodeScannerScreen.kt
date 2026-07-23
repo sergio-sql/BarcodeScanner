@@ -14,7 +14,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -34,13 +37,25 @@ data class BarcodeItem(
     var isSelected: Boolean = false
 )
 
+enum class SelectAllState { Unchecked, Indeterminate, Checked }
+
 @kotlin.OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BarcodeScannerScreen() {
     val context = LocalContext.current
 
     val barcodeList = remember { mutableStateListOf<BarcodeItem>() }
-    val isAllSelected = remember { derivedStateOf { barcodeList.isNotEmpty() && barcodeList.all { it.isSelected } } }
+    val selectAllState = remember {
+        derivedStateOf<SelectAllState> {
+            when {
+                barcodeList.isEmpty() -> SelectAllState.Unchecked
+                barcodeList.all { it.isSelected } -> SelectAllState.Checked
+                barcodeList.any { it.isSelected } -> SelectAllState.Indeterminate
+                else -> SelectAllState.Unchecked
+            }
+        }
+    }
+    val hasSelection = remember { derivedStateOf<Boolean> { barcodeList.any { it.isSelected } } }
     var currentImagePath by remember { mutableStateOf<String?>(null) }
 
     var isCameraOpen by remember { mutableStateOf(false) }
@@ -71,27 +86,61 @@ fun BarcodeScannerScreen() {
     }
 
     val onSelectAllClick = {
-        val newValue = !isAllSelected.value
-        barcodeList.forEach { it.isSelected = newValue }
+        when (selectAllState.value) {
+            SelectAllState.Checked -> barcodeList.forEach { it.isSelected = false }
+            else -> barcodeList.forEach { it.isSelected = true }
+        }
+    }
+
+    val onDeleteClick = {
+        val toRemove = barcodeList.filter { it.isSelected }.toList()
+        toRemove.forEach { item ->
+            item.imagePath?.let { path ->
+                context.filesDir.resolve(path).delete()
+            }
+        }
+        barcodeList.removeAll(toRemove)
+        barcodeList.forEach { it.isSelected = false }
     }
 
     Scaffold(
         topBar = {
             if (!isCameraOpen) {
                 TopAppBar(
-                    title = { Text("Список штрихкодов") },
+                    title = {},
                     actions = {
                         Row(
                             modifier = Modifier.padding(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Checkbox(
-                                checked = isAllSelected.value,
-                                onCheckedChange = { onSelectAllClick() },
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Text("Выбрать все")
+                            IconButton(onClick = onSelectAllClick) {
+                                val icon = when (selectAllState.value) {
+                                    SelectAllState.Checked -> Icons.Default.CheckBox
+                                    SelectAllState.Indeterminate -> Icons.Default.IndeterminateCheckBox
+                                    else -> Icons.Default.CheckBoxOutlineBlank
+                                }
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = "Выбрать все"
+                                )
+                            }
+                            if (hasSelection.value) {
+                                IconButton(onClick = onDeleteClick) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Удалить выбранные"
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    barcodeList.forEach { it.isSelected = false }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Отменить выбор"
+                                    )
+                                }
+                            }
                             IconButton(onClick = onAddClick) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
