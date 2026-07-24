@@ -187,7 +187,7 @@ fun ManualCameraScanView(
                 }) {
                     Icon(
                         imageVector = if (torchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                        contentDescription = if (torchEnabled) "Выключить вспышку" else "Включить вспышку",
+                        contentDescription = if (torchEnabled) "Выключить фонарик" else "Включить фонарик",
                         tint = if (torchEnabled) Color.Yellow else Color.White
                     )
                 }
