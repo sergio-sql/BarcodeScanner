@@ -14,3 +14,7 @@
 .cxx
 local.properties
 .aider*
+/app/release
+*.apk
+*.ap_
+*.aab
