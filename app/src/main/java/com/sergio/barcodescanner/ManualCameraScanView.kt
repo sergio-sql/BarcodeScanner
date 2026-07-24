@@ -1,20 +1,27 @@
 package com.sergio.barcodescanner
 
+import android.graphics.BitmapFactory
+import android.graphics.Rect
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.ZoomIn
@@ -23,7 +30,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -31,13 +44,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
+import java.io.File
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalGetImage::class)
 @Composable
 fun ManualCameraScanView(
     scannedCount: Int,
-    onBarcodeFound: (String) -> Unit,
+    onBarcodeFound: (String, String?) -> Unit,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
@@ -45,6 +59,7 @@ fun ManualCameraScanView(
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val executor = remember { Executors.newSingleThreadExecutor() }
     val scanner = remember { BarcodeScanning.getClient() }
+    val imageCapture = remember { ImageCapture.Builder().build() }
 
     var shouldScanNextFrame by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -52,6 +67,14 @@ fun ManualCameraScanView(
     var zoomRatio by remember { mutableFloatStateOf(1f) }
     var exposureIndex by remember { mutableIntStateOf(0) }
     var camera by remember { mutableStateOf<Camera?>(null) }
+
+    var pendingBarcode by remember { mutableStateOf<String?>(null) }
+    var pendingImagePath by remember { mutableStateOf<String?>(null) }
+    var previewBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var detectedBarcode by remember { mutableStateOf<String?>(null) }
+    var detectedRect by remember { mutableStateOf<Rect?>(null) }
+    var previewSize by remember { mutableStateOf<android.util.Size?>(null) }
+    var imageSize by remember { mutableStateOf<android.util.Size?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
@@ -72,6 +95,7 @@ fun ManualCameraScanView(
                         .build()
 
                     imageAnalysis.setAnalyzer(executor) { imageProxy ->
+                        imageSize = android.util.Size(imageProxy.width, imageProxy.height)
                         if (shouldScanNextFrame && !isProcessing) {
                             isProcessing = true
                             val mediaImage = imageProxy.image
@@ -84,12 +108,33 @@ fun ManualCameraScanView(
 
                                 scanner.process(image)
                                     .addOnSuccessListener { barcodes ->
-                                        val firstBarcode = barcodes.firstOrNull()?.rawValue
+                                        val firstBarcode = barcodes.firstOrNull()
                                         if (firstBarcode != null) {
-                                            ContextCompat.getMainExecutor(context).execute {
-                                                onBarcodeFound(firstBarcode)
-                                            }
+                                            detectedBarcode = firstBarcode.rawValue
+                                            detectedRect = firstBarcode.boundingBox
+                                            val photoFile = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "${System.currentTimeMillis()}.jpg")
+                                            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                                            imageCapture.takePicture(outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
+                                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                                    val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
+                                                    val bitmap = BitmapFactory.decodeFile(imagePath)
+                                                    ContextCompat.getMainExecutor(context).execute {
+                                                        pendingBarcode = firstBarcode.rawValue
+                                                        pendingImagePath = imagePath
+                                                        previewBitmap = bitmap
+                                                    }
+                                                }
+                                                override fun onError(exception: ImageCaptureException) {
+                                                    ContextCompat.getMainExecutor(context).execute {
+                                                        pendingBarcode = firstBarcode.rawValue
+                                                        pendingImagePath = null
+                                                        previewBitmap = null
+                                                    }
+                                                }
+                                            })
                                         } else {
+                                            detectedBarcode = null
+                                            detectedRect = null
                                             ContextCompat.getMainExecutor(context).execute {
                                                 Toast.makeText(
                                                     context,
@@ -122,7 +167,8 @@ fun ManualCameraScanView(
                             lifecycleOwner,
                             cameraSelector,
                             preview,
-                            imageAnalysis
+                            imageAnalysis,
+                            imageCapture
                         )
                         camera = boundCamera
                         boundCamera.cameraControl.enableTorch(torchEnabled)
@@ -135,6 +181,31 @@ fun ManualCameraScanView(
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        detectedRect?.let { rect ->
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val imageW = imageSize?.width?.toFloat() ?: 1f
+                val imageH = imageSize?.height?.toFloat() ?: 1f
+                val viewW = size.width
+                val viewH = size.height
+
+                val scale = kotlin.math.max(viewW / imageW, viewH / imageH)
+                val offsetX = (viewW - imageW * scale) / 2f
+                val offsetY = (viewH - imageH * scale) / 2f
+
+                val left = rect.left * scale + offsetX
+                val top = rect.top * scale + offsetY
+                val right = rect.right * scale + offsetX
+                val bottom = rect.bottom * scale + offsetY
+
+                drawRect(
+                    color = Color.Green,
+                    topLeft = Offset(left, top),
+                    size = androidx.compose.ui.geometry.Size(kotlin.math.max(0f, right - left), kotlin.math.max(0f, bottom - top)),
+                    style = Stroke(width = 8f)
+                )
+            }
+        }
 
         Row(
             modifier = Modifier
@@ -242,6 +313,65 @@ fun ManualCameraScanView(
                 )
                 Text(if (isProcessing) "Сканирование..." else "Считать штрихкод")
             }
+        }
+
+        if (pendingBarcode != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    pendingImagePath?.let { File(it).delete() }
+                    pendingBarcode = null
+                    pendingImagePath = null
+                    previewBitmap = null
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val code = pendingBarcode
+                        val path = pendingImagePath
+                        pendingBarcode = null
+                        pendingImagePath = null
+                        previewBitmap = null
+                        if (code != null) {
+                            onBarcodeFound(code, path)
+                        }
+                    }) {
+                        Text("Сохранить")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        pendingImagePath?.let { File(it).delete() }
+                        pendingBarcode = null
+                        pendingImagePath = null
+                        previewBitmap = null
+                    }) {
+                        Text("Отклонить")
+                    }
+                },
+                title = { Text("Предпросмотр") },
+                text = {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        previewBitmap?.let {
+                            Image(
+                                bitmap = it.asImageBitmap(),
+                                contentDescription = "Предпросмотр штрихкода",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(250.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = pendingBarcode ?: "",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

@@ -170,17 +170,17 @@ fun BarcodeScannerScreen() {
             if (isCameraOpen) {
                 ManualCameraScanView(
                     scannedCount = barcodeList.size,
-                    onBarcodeFound = { barcodeValue ->
-                        if (barcodeList.any { it.code == barcodeValue }) {
-                            Toast.makeText(
-                                context,
-                                "Этот штрихкод уже есть в списке",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        } else {
-                            barcodeList.add(0, BarcodeItem(code = barcodeValue))
-                        }
-                    },
+                        onBarcodeFound = { barcodeValue, imagePath ->
+                            if (barcodeList.any { it.code == barcodeValue }) {
+                                Toast.makeText(
+                                    context,
+                                    "Этот штрихкод уже есть в списке",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                barcodeList.add(0, BarcodeItem(code = barcodeValue, imagePath = imagePath))
+                            }
+                        },
                     onClose = { isCameraOpen = false }
                 )
             } else {
