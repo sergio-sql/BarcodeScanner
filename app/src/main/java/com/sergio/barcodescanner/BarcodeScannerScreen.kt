@@ -1,8 +1,10 @@
 package com.sergio.barcodescanner
 
 import android.Manifest
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -94,9 +97,9 @@ fun BarcodeScannerScreen() {
     }
 
     val onSelectAllClick = {
-        when (selectAllState.value) {
-            SelectAllState.Checked -> barcodeList.forEach { it.isSelected = false }
-            else -> barcodeList.forEach { it.isSelected = true }
+        val newState = selectAllState.value != SelectAllState.Checked
+        barcodeList.forEachIndexed { i, item ->
+            barcodeList[i] = item.copy(isSelected = newState)
         }
     }
 
@@ -108,7 +111,18 @@ fun BarcodeScannerScreen() {
             }
         }
         barcodeList.removeAll(toRemove)
-        barcodeList.forEach { it.isSelected = false }
+        barcodeList.forEachIndexed { i, item ->
+            barcodeList[i] = item.copy(isSelected = false)
+        }
+    }
+
+    val activity = context as ComponentActivity
+    LaunchedEffect(isCameraOpen) {
+        activity.requestedOrientation = if (isCameraOpen) {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
     }
 
     Scaffold(
@@ -149,7 +163,9 @@ fun BarcodeScannerScreen() {
                                     )
                                 }
                                 IconButton(onClick = {
-                                    barcodeList.forEach { it.isSelected = false }
+                                    barcodeList.forEachIndexed { i, item ->
+                                        barcodeList[i] = item.copy(isSelected = false)
+                                    }
                                 }) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
@@ -162,6 +178,12 @@ fun BarcodeScannerScreen() {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "Добавить штрихкод"
+                            )
+                        }
+                        IconButton(onClick = { activity.finish() }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Выход"
                             )
                         }
                     }
@@ -221,12 +243,15 @@ fun BarcodeScannerScreen() {
                                         .padding(16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Checkbox(
-                                        checked = item.isSelected,
-                                        onCheckedChange = { checked ->
-                                            item.isSelected = checked
-                                        }
-                                    )
+                            Checkbox(
+                                checked = item.isSelected,
+                                onCheckedChange = { checked ->
+                                    val currentIndex = barcodeList.indexOf(item)
+                                    if (currentIndex != -1) {
+                                        barcodeList[currentIndex] = item.copy(isSelected = checked)
+                                    }
+                                }
+                            )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
                                         text = "${index + 1}.",

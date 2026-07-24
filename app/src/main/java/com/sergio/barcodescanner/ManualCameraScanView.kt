@@ -94,6 +94,7 @@ fun ManualCameraScanView(
     var detectedBarcode by remember { mutableStateOf<String?>(null) }
     var detectedRect by remember { mutableStateOf<Rect?>(null) }
     var imageSize by remember { mutableStateOf<android.util.Size?>(null) }
+    var rotationDegrees by remember { mutableIntStateOf(0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
@@ -115,6 +116,7 @@ fun ManualCameraScanView(
 
                     imageAnalysis.setAnalyzer(executor) { imageProxy ->
                         imageSize = android.util.Size(imageProxy.width, imageProxy.height)
+                        rotationDegrees = imageProxy.imageInfo.rotationDegrees
                         if (shouldScanNextFrame && !isProcessing) {
                             isProcessing = true
                             val mediaImage = imageProxy.image
@@ -208,14 +210,57 @@ fun ManualCameraScanView(
                 val viewW = size.width
                 val viewH = size.height
 
-                val scale = kotlin.math.max(viewW / imageW, viewH / imageH)
-                val offsetX = (viewW - imageW * scale) / 2f
-                val offsetY = (viewH - imageH * scale) / 2f
+                val rotation = rotationDegrees
+                val (srcW, srcH) = if (rotation == 90 || rotation == 270) {
+                    imageH to imageW
+                } else {
+                    imageW to imageH
+                }
 
-                val left = rect.left * scale + offsetX
-                val top = rect.top * scale + offsetY
-                val right = rect.right * scale + offsetX
-                val bottom = rect.bottom * scale + offsetY
+                val scale = kotlin.math.max(viewW / srcW, viewH / srcH)
+                val offsetX = (viewW - srcW * scale) / 2f
+                val offsetY = (viewH - srcH * scale) / 2f
+
+                val normalizedLeft = minOf(rect.left, rect.right)
+                val normalizedTop = minOf(rect.top, rect.bottom)
+                val normalizedRight = maxOf(rect.left, rect.right)
+                val normalizedBottom = maxOf(rect.top, rect.bottom)
+
+                val rLeft: Float
+                val rTop: Float
+                val rRight: Float
+                val rBottom: Float
+                when (rotation) {
+                    90 -> {
+                        rLeft = imageH - normalizedBottom
+                        rTop = normalizedLeft.toFloat()
+                        rRight = imageH - normalizedTop
+                        rBottom = normalizedRight.toFloat()
+                    }
+                    180 -> {
+                        rLeft = imageW - normalizedRight
+                        rTop = imageH - normalizedBottom
+                        rRight = imageW - normalizedLeft
+                        rBottom = imageH - normalizedTop
+                    }
+                    270 -> {
+                        rLeft = normalizedTop.toFloat()
+                        rTop = imageW - normalizedRight
+                        rRight = normalizedBottom.toFloat()
+                        rBottom = imageW - normalizedLeft
+                    }
+                    else -> {
+                        rLeft = normalizedLeft.toFloat()
+                        rTop = normalizedTop.toFloat()
+                        rRight = normalizedRight.toFloat()
+                        rBottom = normalizedBottom.toFloat()
+                    }
+                }
+
+                val left = rLeft * scale + offsetX
+                val top = rTop * scale + offsetY
+                val right = rRight * scale + offsetX
+                val bottom = rBottom * scale + offsetY
 
                 drawRect(
                     color = Color.Green,
