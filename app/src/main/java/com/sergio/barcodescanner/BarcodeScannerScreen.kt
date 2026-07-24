@@ -2,15 +2,12 @@ package com.sergio.barcodescanner
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -20,25 +17,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-
-data class BarcodeItem(
-    val id: String = System.currentTimeMillis().toString(),
-    val code: String,
-    val imagePath: String? = null,
-    var isSelected: Boolean = false
-)
-
-enum class SelectAllState { Unchecked, Indeterminate, Checked }
 
 @kotlin.OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -170,17 +155,17 @@ fun BarcodeScannerScreen() {
             if (isCameraOpen) {
                 ManualCameraScanView(
                     scannedCount = barcodeList.size,
-                        onBarcodeFound = { barcodeValue, imagePath ->
-                            if (barcodeList.any { it.code == barcodeValue }) {
-                                Toast.makeText(
-                                    context,
-                                    "Этот штрихкод уже есть в списке",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } else {
-                                barcodeList.add(0, BarcodeItem(code = barcodeValue, imagePath = imagePath))
-                            }
-                        },
+                    onBarcodeFound = { barcodeValue, imagePath ->
+                        if (barcodeList.any { it.code == barcodeValue }) {
+                            Toast.makeText(
+                                context,
+                                "Этот штрихкод уже есть в списке",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            barcodeList.add(0, BarcodeItem(code = barcodeValue, imagePath = imagePath))
+                        }
+                    },
                     onClose = { isCameraOpen = false }
                 )
             } else {
@@ -251,30 +236,10 @@ fun BarcodeScannerScreen() {
     }
 
     currentImagePath?.let { path ->
-        AlertDialog(
-            onDismissRequest = { currentImagePath = null },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { currentImagePath = null }) {
-                    Text("Закрыть")
-                }
-            },
-            title = null,
-            text = {
-                var bitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-                LaunchedEffect(path) {
-                    bitmap = BitmapFactory.decodeFile(path)
-                }
-                bitmap?.let {
-                    Image(
-                        bitmap = it.asImageBitmap(),
-                        contentDescription = "Изображение штрихкода",
-                        modifier = Modifier.fillMaxWidth(),
-                        contentScale = ContentScale.Fit
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
+        BarcodeImagePreviewDialog(
+            imagePath = path,
+            onDismiss = { currentImagePath = null }
         )
     }
 }
+
