@@ -1,6 +1,8 @@
 package com.sergio.barcodescanner
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.graphics.Rect
 import android.widget.Toast
 import androidx.annotation.OptIn
@@ -62,7 +64,52 @@ import com.sergio.barcodescanner.FullScreenImagePreview
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.Executors
+
+private fun cropToBoundingBox(
+    context: android.content.Context,
+    originalPath: String,
+    boundingBox: Rect,
+    rotationDegrees: Int
+): String? {
+    val bitmap = BitmapFactory.decodeFile(originalPath) ?: return null
+    
+    val alignedBitmap = when (rotationDegrees) {
+        90, 270 -> {
+            val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        }
+        180 -> {
+            val matrix = Matrix().apply { postRotate(180f) }
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        }
+        else -> bitmap
+    }
+    
+    val left = boundingBox.left.coerceIn(0, alignedBitmap.width)
+    val top = boundingBox.top.coerceIn(0, alignedBitmap.height)
+    val right = boundingBox.right.coerceIn(left, alignedBitmap.width)
+    val bottom = boundingBox.bottom.coerceIn(top, alignedBitmap.height)
+    
+    if (right <= left || bottom <= top) return null
+    
+    val cropped = Bitmap.createBitmap(alignedBitmap, left, top, right - left, bottom - top)
+    
+    val picturesDir = File(context.filesDir, "barcode_images")
+    if (!picturesDir.exists()) picturesDir.mkdirs()
+    val croppedFile = File(picturesDir, "crop_${System.currentTimeMillis()}.jpg")
+    
+    FileOutputStream(croppedFile).use { out ->
+        cropped.compress(Bitmap.CompressFormat.JPEG, 90, out)
+    }
+    
+    if (alignedBitmap != bitmap) alignedBitmap.recycle()
+    bitmap.recycle()
+    File(originalPath).delete()
+    
+    return croppedFile.absolutePath
+}
 
 @OptIn(ExperimentalGetImage::class)
 @Composable
@@ -342,11 +389,18 @@ fun ManualCameraScanView(
                                         val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
                                         ContextCompat.getMainExecutor(context).execute {
                                             val code = detectedBarcode
+                                            val rect = detectedRect
+                                            val rotation = rotationDegrees
                                             detectedBarcode = null
                                             detectedRect = null
                                             if (code != null) {
+                                                val finalPath = if (rect != null) {
+                                                    cropToBoundingBox(context, imagePath, rect, rotation) ?: imagePath
+                                                } else {
+                                                    imagePath
+                                                }
                                                 capturedBarcode = code
-                                                capturedImagePath = imagePath
+                                                capturedImagePath = finalPath
                                                 isPreviewOpen = true
                                             }
                                             isCapturing = false
