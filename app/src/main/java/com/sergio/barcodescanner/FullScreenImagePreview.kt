@@ -3,7 +3,6 @@ package com.sergio.barcodescanner
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,20 +14,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -55,10 +54,10 @@ fun FullScreenImagePreview(
     val scaleState = remember { mutableFloatStateOf(1f) }
     val maxScaleState = remember { mutableFloatStateOf(1f) }
     val viewportSizeState = remember { mutableStateOf<Size>(Size.Zero) }
-    var loadError by remember { mutableStateOf<String?>(null) }
+    val loadError = remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(imagePath) {
-        loadError = null
+                            loadError.value = null
         if (imagePath != null) {
             try {
                 bitmapState.value = when {
@@ -77,18 +76,18 @@ fun FullScreenImagePreview(
                         BitmapFactory.decodeFile(imagePath)
                     }
                 }
-                
+
                 if (bitmapState.value == null) {
-                    loadError = "Не удалось декодировать изображение"
+                                    loadError.value = "Не удалось декодировать изображение"
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                loadError = e.message ?: "Ошибка загрузки изображения"
+                loadError.value = e.message ?: "Ошибка загрузки изображения"
                 bitmapState.value = null
             }
         } else {
             bitmapState.value = null
-            loadError = "Путь к изображению отсутствует"
+            loadError.value = "Путь к изображению отсутствует"
         }
         scaleState.value = 1f
     }
@@ -97,8 +96,6 @@ fun FullScreenImagePreview(
     val scale = scaleState.value
     val maxScale = maxScaleState.value
     val viewportSize = viewportSizeState.value
-
-    BackHandler(onBack = onDismiss)
 
     LaunchedEffect(bitmap, viewportSize) {
         if (bitmap != null && viewportSize.width > 0 && viewportSize.height > 0) {
@@ -113,9 +110,9 @@ fun FullScreenImagePreview(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        if (bitmap != null) {
+        bitmap?.let {
             Image(
-                bitmap = bitmap.asImageBitmap(),
+                bitmap = it.asImageBitmap(),
                 contentDescription = "Предпросмотр штрихкода",
                 modifier = Modifier
                     .fillMaxSize()
@@ -133,12 +130,12 @@ fun FullScreenImagePreview(
                     },
                 contentScale = ContentScale.Fit
             )
-        } else {
+        } ?: run {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                if (loadError != null) {
+                if (loadError.value != null) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(32.dp)
@@ -150,14 +147,14 @@ fun FullScreenImagePreview(
                         )
                         Spacer(modifier = Modifier.padding(top = 8.dp))
                         Text(
-                            text = loadError ?: "",
+                            text = loadError.value ?: "",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.7f),
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
                         Spacer(modifier = Modifier.padding(top = 16.dp))
                         Button(onClick = {
-                            loadError = null
+        loadError.value = null
                             imagePath?.let { path ->
                                 try {
                                     bitmapState.value = when {
@@ -173,10 +170,10 @@ fun FullScreenImagePreview(
                                         }
                                     }
                                     if (bitmapState.value == null) {
-                                        loadError = "Не удалось декодировать изображение"
+                    loadError.value = "Не удалось декодировать изображение"
                                     }
                                 } catch (e: Exception) {
-                                    loadError = e.message ?: "Ошибка загрузки"
+                                    loadError.value = e.message ?: "Ошибка загрузки"
                                     bitmapState.value = null
                                 }
                             }
@@ -200,12 +197,28 @@ fun FullScreenImagePreview(
             color = Color.Black.copy(alpha = 0.6f),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
         ) {
-            Text(
-                text = barcode ?: "",
-                color = Color.White,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = barcode ?: "",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                if (!showActions) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Закрыть",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
         }
 
         if (showActions && bitmap != null) {
@@ -220,11 +233,11 @@ fun FullScreenImagePreview(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Check,
+                        imageVector = Icons.Default.Close,
                         contentDescription = null,
                         modifier = Modifier.padding(end = 8.dp)
                     )
@@ -235,7 +248,10 @@ fun FullScreenImagePreview(
                         onSave()
                         onDismiss()
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,

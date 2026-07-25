@@ -52,7 +52,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -108,283 +107,286 @@ fun ManualCameraScanView(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { ctx ->
-                val previewView = PreviewView(ctx).apply {
-                    scaleType = PreviewView.ScaleType.FILL_CENTER
-                }
-
-                cameraProviderFuture.addListener({
-                    val cameraProvider = cameraProviderFuture.get()
-
-                    val preview = Preview.Builder().build().also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
+        if (!isPreviewOpen) {
+            AndroidView(
+                factory = { ctx ->
+                    val previewView = PreviewView(ctx).apply {
+                        scaleType = PreviewView.ScaleType.FILL_CENTER
                     }
 
-                    val imageAnalysis = ImageAnalysis.Builder()
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build()
+                    cameraProviderFuture.addListener({
+                        val cameraProvider = cameraProviderFuture.get()
 
-                    imageAnalysis.setAnalyzer(executor) { imageProxy ->
-                        imageSize = android.util.Size(imageProxy.width, imageProxy.height)
-                        rotationDegrees = imageProxy.imageInfo.rotationDegrees
-                        if (!isScanning && !isPreviewOpen) {
-                            isScanning = true
-                            val mediaImage = imageProxy.image
+                        val preview = Preview.Builder().build().also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
 
-                            if (mediaImage != null) {
-                                val image = InputImage.fromMediaImage(
-                                    mediaImage,
-                                    imageProxy.imageInfo.rotationDegrees
-                                )
+                        val imageAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
 
-                                scanner.process(image)
-                                    .addOnSuccessListener { barcodes ->
-                                        val firstBarcode = barcodes.firstOrNull()
-                                        if (firstBarcode != null) {
-                                            val code = firstBarcode.rawValue ?: return@addOnSuccessListener
-                                            ContextCompat.getMainExecutor(context).execute {
-                                                detectedBarcode = code
-                                                detectedRect = firstBarcode.boundingBox
-                                            }
-                                        } else {
-                                            ContextCompat.getMainExecutor(context).execute {
-                                                detectedBarcode = null
-                                                detectedRect = null
+                        imageAnalysis.setAnalyzer(executor) { imageProxy ->
+                            imageSize = android.util.Size(imageProxy.width, imageProxy.height)
+                            rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                            if (!isScanning && !isPreviewOpen) {
+                                isScanning = true
+                                val mediaImage = imageProxy.image
+
+                                if (mediaImage != null) {
+                                    val image = InputImage.fromMediaImage(
+                                        mediaImage,
+                                        imageProxy.imageInfo.rotationDegrees
+                                    )
+
+                                    scanner.process(image)
+                                        .addOnSuccessListener { barcodes ->
+                                            val firstBarcode = barcodes.firstOrNull()
+                                            if (firstBarcode != null) {
+                                                val code = firstBarcode.rawValue ?: return@addOnSuccessListener
+                                                ContextCompat.getMainExecutor(context).execute {
+                                                    detectedBarcode = code
+                                                    detectedRect = firstBarcode.boundingBox
+                                                }
+                                            } else {
+                                                ContextCompat.getMainExecutor(context).execute {
+                                                    detectedBarcode = null
+                                                    detectedRect = null
+                                                }
                                             }
                                         }
-                                    }
-                                    .addOnCompleteListener {
-                                        ContextCompat.getMainExecutor(context).execute {
-                                            isScanning = false
+                                        .addOnCompleteListener {
+                                            ContextCompat.getMainExecutor(context).execute {
+                                                isScanning = false
+                                            }
+                                            imageProxy.close()
                                         }
-                                        imageProxy.close()
+                                } else {
+                                    imageProxy.close()
+                                    ContextCompat.getMainExecutor(context).execute {
+                                        isScanning = false
                                     }
+                                }
                             } else {
                                 imageProxy.close()
-                                ContextCompat.getMainExecutor(context).execute {
-                                    isScanning = false
-                                }
                             }
-                        } else {
-                            imageProxy.close()
                         }
+
+                        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                        try {
+                            cameraProvider.unbindAll()
+                            val boundCamera = cameraProvider.bindToLifecycle(
+                                lifecycleOwner,
+                                cameraSelector,
+                                preview,
+                                imageAnalysis,
+                                imageCapture
+                            )
+                            camera = boundCamera
+                            boundCamera.cameraControl.enableTorch(torchEnabled)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }, ContextCompat.getMainExecutor(context))
+
+                    previewView
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            detectedRect?.let { rect ->
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val imageW = imageSize?.width?.toFloat() ?: 1f
+                    val imageH = imageSize?.height?.toFloat() ?: 1f
+                    val viewW = size.width
+                    val viewH = size.height
+
+                    val rotation = rotationDegrees
+                    val srcW: Float
+                    val srcH: Float
+                    if (rotation == 90 || rotation == 270) {
+                        srcW = imageH
+                        srcH = imageW
+                    } else {
+                        srcW = imageW
+                        srcH = imageH
                     }
 
-                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                    val scale = kotlin.math.max(viewW / srcW, viewH / srcH)
+                    val offsetX = (viewW - srcW * scale) / 2f
+                    val offsetY = (viewH - srcH * scale) / 2f
 
-                    try {
-                        cameraProvider.unbindAll()
-                        val boundCamera = cameraProvider.bindToLifecycle(
-                            lifecycleOwner,
-                            cameraSelector,
-                            preview,
-                            imageAnalysis,
-                            imageCapture
-                        )
-                        camera = boundCamera
-                        boundCamera.cameraControl.enableTorch(torchEnabled)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }, ContextCompat.getMainExecutor(context))
+                    val normalizedLeft = minOf(rect.left, rect.right)
+                    val normalizedTop = minOf(rect.top, rect.bottom)
+                    val normalizedRight = maxOf(rect.left, rect.right)
+                    val normalizedBottom = maxOf(rect.top, rect.bottom)
 
-                previewView
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+                    val left = normalizedLeft * scale + offsetX
+                    val top = normalizedTop * scale + offsetY
+                    val right = normalizedRight * scale + offsetX
+                    val bottom = normalizedBottom * scale + offsetY
 
-        detectedRect?.let { rect ->
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val imageW = imageSize?.width?.toFloat() ?: 1f
-                val imageH = imageSize?.height?.toFloat() ?: 1f
-                val viewW = size.width
-                val viewH = size.height
-
-                val rotation = rotationDegrees
-                val srcW: Float
-                val srcH: Float
-                if (rotation == 90 || rotation == 270) {
-                    srcW = imageH
-                    srcH = imageW
-                } else {
-                    srcW = imageW
-                    srcH = imageH
+                    drawRect(
+                        color = Color.Green,
+                        topLeft = Offset(left, top),
+                        size = androidx.compose.ui.geometry.Size(kotlin.math.max(0f, right - left), kotlin.math.max(0f, bottom - top)),
+                        style = Stroke(width = 8f)
+                    )
                 }
-
-                val scale = kotlin.math.max(viewW / srcW, viewH / srcH)
-                val offsetX = (viewW - srcW * scale) / 2f
-                val offsetY = (viewH - srcH * scale) / 2f
-
-                val normalizedLeft = minOf(rect.left, rect.right)
-                val normalizedTop = minOf(rect.top, rect.bottom)
-                val normalizedRight = maxOf(rect.left, rect.right)
-                val normalizedBottom = maxOf(rect.top, rect.bottom)
-
-                val left = normalizedLeft * scale + offsetX
-                val top = normalizedTop * scale + offsetY
-                val right = normalizedRight * scale + offsetX
-                val bottom = normalizedBottom * scale + offsetY
-
-                drawRect(
-                    color = Color.Green,
-                    topLeft = Offset(left, top),
-                    size = androidx.compose.ui.geometry.Size(kotlin.math.max(0f, right - left), kotlin.math.max(0f, bottom - top)),
-                    style = Stroke(width = 8f)
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 40.dp, start = 16.dp, end = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                color = Color.Black.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Text(
-                    text = "В списке: $scannedCount",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
             }
 
-            Button(
-                onClick = onClose,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 4.dp)
-                )
-                Text("Готово")
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                IconButton(onClick = {
-                    torchEnabled = !torchEnabled
-                    camera?.cameraControl?.enableTorch(torchEnabled)
-                }) {
-                    Icon(
-                        imageVector = if (torchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                        contentDescription = if (torchEnabled) "Выключить фонарик" else "Включить фонарик",
-                        tint = if (torchEnabled) Color.Yellow else Color.White
-                    )
-                }
-                IconButton(onClick = {
-                    zoomRatio = (zoomRatio - 0.5f).coerceAtLeast(1f)
-                    camera?.cameraControl?.setZoomRatio(zoomRatio)
-                }) {
-                    Icon(
-                        imageVector = Icons.Default.ZoomOut,
-                        contentDescription = "Уменьшить зум",
-                        tint = Color.White
-                    )
-                }
-                IconButton(onClick = {
-                    val maxZoom = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 5f
-                    zoomRatio = (zoomRatio + 0.5f).coerceAtMost(maxZoom)
-                    camera?.cameraControl?.setZoomRatio(zoomRatio)
-                }) {
-                    Icon(
-                        imageVector = Icons.Default.ZoomIn,
-                        contentDescription = "Увеличить зум",
-                        tint = Color.White
-                    )
-                }
-            }
-
-            Slider(
-                value = exposureIndex.toFloat(),
-                onValueChange = { exposureIndex = it.toInt() },
-                valueRange = -10f..10f,
-                steps = 20,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-            )
-            LaunchedEffect(exposureIndex) {
-                camera?.cameraControl?.setExposureCompensationIndex(exposureIndex)
+                    .padding(top = 40.dp, start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text(
+                        text = "В списке: $scannedCount",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+
+                Button(
+                    onClick = onClose,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                    Text("Готово")
+                }
             }
 
-            FloatingActionButton(
-                onClick = {
-                    if (detectedBarcode != null && !isCapturing) {
-                        isCapturing = true
-                        try {
-                            val picturesDir = File(context.filesDir, "barcode_images")
-                            if (!picturesDir.exists()) {
-                                picturesDir.mkdirs()
-                            }
-                            val photoFile = File(picturesDir, "${System.currentTimeMillis()}.jpg")
-                            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-                            imageCapture.takePicture(outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
-                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                    val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
-                                    ContextCompat.getMainExecutor(context).execute {
-                                        val code = detectedBarcode
-                                        detectedBarcode = null
-                                        detectedRect = null
-                                        if (code != null) {
-                                            capturedBarcode = code
-                                            capturedImagePath = imagePath
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    IconButton(onClick = {
+                        torchEnabled = !torchEnabled
+                        camera?.cameraControl?.enableTorch(torchEnabled)
+                    }) {
+                        Icon(
+                            imageVector = if (torchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                            contentDescription = if (torchEnabled) "Выключить фонарик" else "Включить фонарик",
+                            tint = if (torchEnabled) Color.Yellow else Color.White
+                        )
+                    }
+                    IconButton(onClick = {
+                        zoomRatio = (zoomRatio - 0.5f).coerceAtLeast(1f)
+                        camera?.cameraControl?.setZoomRatio(zoomRatio)
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.ZoomOut,
+                            contentDescription = "Уменьшить зум",
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(onClick = {
+                        val maxZoom = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 5f
+                        zoomRatio = (zoomRatio + 0.5f).coerceAtMost(maxZoom)
+                        camera?.cameraControl?.setZoomRatio(zoomRatio)
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.ZoomIn,
+                            contentDescription = "Увеличить зум",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Slider(
+                    value = exposureIndex.toFloat(),
+                    onValueChange = { exposureIndex = it.toInt() },
+                    valueRange = -10f..10f,
+                    steps = 20,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                )
+                LaunchedEffect(exposureIndex) {
+                    camera?.cameraControl?.setExposureCompensationIndex(exposureIndex)
+                }
+
+                FloatingActionButton(
+                    onClick = {
+                        if (detectedBarcode != null && !isCapturing) {
+                            isCapturing = true
+                            try {
+                                val picturesDir = File(context.filesDir, "barcode_images")
+                                if (!picturesDir.exists()) {
+                                    picturesDir.mkdirs()
+                                }
+                                val photoFile = File(picturesDir, "${System.currentTimeMillis()}.jpg")
+                                val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                                imageCapture.takePicture(outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
+                                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                        val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
+                                        ContextCompat.getMainExecutor(context).execute {
+                                            val code = detectedBarcode
+                                            detectedBarcode = null
+                                            detectedRect = null
+                                            if (code != null) {
+                                                capturedBarcode = code
+                                                capturedImagePath = imagePath
+                                                isPreviewOpen = true
+                                            }
+                                            isCapturing = false
                                         }
-                                        isCapturing = false
                                     }
-                                }
-                                override fun onError(exception: ImageCaptureException) {
-                                    ContextCompat.getMainExecutor(context).execute {
-                                        Toast.makeText(context, "Ошибка сохранения: ${exception.message}", Toast.LENGTH_SHORT).show()
-                                        detectedBarcode = null
-                                        detectedRect = null
-                                        isCapturing = false
+                                    override fun onError(exception: ImageCaptureException) {
+                                        ContextCompat.getMainExecutor(context).execute {
+                                            Toast.makeText(context, "Ошибка сохранения: ${exception.message}", Toast.LENGTH_SHORT).show()
+                                            detectedBarcode = null
+                                            detectedRect = null
+                                            isCapturing = false
+                                        }
                                     }
+                                })
+                            } catch (e: Exception) {
+                                ContextCompat.getMainExecutor(context).execute {
+                                    Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    detectedBarcode = null
+                                    detectedRect = null
+                                    isCapturing = false
                                 }
-                            })
-                        } catch (e: Exception) {
-                            ContextCompat.getMainExecutor(context).execute {
-                                Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
-                                detectedBarcode = null
-                                detectedRect = null
-                                isCapturing = false
                             }
                         }
-                    }
-                },
-                modifier = Modifier
-                    .size(72.dp)
-                    .padding(bottom = 16.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Camera,
-                    contentDescription = "Сохранить штрихкод",
-                    modifier = Modifier.size(36.dp)
-            )
+                    },
+                    modifier = Modifier
+                        .size(72.dp)
+                        .padding(bottom = 16.dp),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Camera,
+                        contentDescription = "Сохранить штрихкод",
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
         }
 
-        if (capturedBarcode != null && capturedImagePath != null) {
-            isPreviewOpen = true
+        if (isPreviewOpen) {
             val currentBarcode = capturedBarcode
             val currentPath = capturedImagePath
             FullScreenImagePreview(
@@ -409,5 +411,4 @@ fun ManualCameraScanView(
             )
         }
     }
-}
 }
