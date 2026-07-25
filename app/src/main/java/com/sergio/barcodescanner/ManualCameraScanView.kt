@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.Rect
+import android.media.MediaActionSound
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.camera.core.Camera
@@ -388,6 +389,7 @@ fun ManualCameraScanView(
                                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                                         val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
                                         ContextCompat.getMainExecutor(context).execute {
+                                            val shutterSound = MediaActionSound().apply { play(MediaActionSound.SHUTTER_CLICK) }
                                             val code = detectedBarcode
                                             val rect = detectedRect
                                             val rotation = rotationDegrees

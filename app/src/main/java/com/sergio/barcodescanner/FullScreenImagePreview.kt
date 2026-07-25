@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import java.io.File
+import androidx.core.net.toUri
 
 @Composable
 fun FullScreenImagePreview(
@@ -62,7 +63,7 @@ fun FullScreenImagePreview(
             try {
                 bitmapState.value = when {
                     imagePath.startsWith("content://") || imagePath.startsWith("file://") -> {
-                        val uri = android.net.Uri.parse(imagePath)
+                        val uri = imagePath.toUri()
                         val stream = context.contentResolver.openInputStream(uri)
                         stream?.use { input ->
                             BitmapFactory.decodeStream(input)
@@ -89,19 +90,19 @@ fun FullScreenImagePreview(
             bitmapState.value = null
             loadError.value = "Путь к изображению отсутствует"
         }
-        scaleState.value = 1f
+        scaleState.floatValue = 1f
     }
 
     val bitmap = bitmapState.value
-    val scale = scaleState.value
-    val maxScale = maxScaleState.value
+    val scale = scaleState.floatValue
+    val maxScale = maxScaleState.floatValue
     val viewportSize = viewportSizeState.value
 
     LaunchedEffect(bitmap, viewportSize) {
         if (bitmap != null && viewportSize.width > 0 && viewportSize.height > 0) {
             val fitScale = minOf(viewportSize.width / bitmap.width, viewportSize.height / bitmap.height)
-            maxScaleState.value = (1f / fitScale).coerceAtLeast(1f)
-            scaleState.value = 1f
+            maxScaleState.floatValue = (1f / fitScale).coerceAtLeast(1f)
+            scaleState.floatValue = 1f
         }
     }
 
@@ -125,7 +126,7 @@ fun FullScreenImagePreview(
                     }
                     .pointerInput(Unit) {
                         detectTransformGestures { _, _, zoom, _ ->
-                            scaleState.value = (scaleState.value * zoom).coerceIn(1f, maxScale)
+                            scaleState.floatValue = (scaleState.floatValue * zoom).coerceIn(1f, maxScale)
                         }
                     },
                 contentScale = ContentScale.Fit
@@ -159,7 +160,7 @@ fun FullScreenImagePreview(
                                 try {
                                     bitmapState.value = when {
                                         path.startsWith("content://") || path.startsWith("file://") -> {
-                                            val uri = android.net.Uri.parse(path)
+                                            val uri = path.toUri()
                                             val stream = context.contentResolver.openInputStream(uri)
                                             stream?.use { input ->
                                                 BitmapFactory.decodeStream(input)
