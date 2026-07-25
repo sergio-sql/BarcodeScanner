@@ -15,6 +15,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Camera
@@ -56,6 +58,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -91,6 +95,7 @@ fun ManualCameraScanView(
     var pendingBarcode by remember { mutableStateOf<String?>(null) }
     var pendingImagePath by remember { mutableStateOf<String?>(null) }
     var previewBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var previewScale by remember { mutableFloatStateOf(1f) }
     var detectedBarcode by remember { mutableStateOf<String?>(null) }
     var detectedRect by remember { mutableStateOf<Rect?>(null) }
     var imageSize by remember { mutableStateOf<android.util.Size?>(null) }
@@ -380,12 +385,16 @@ fun ManualCameraScanView(
         }
 
         if (pendingBarcode != null) {
+            LaunchedEffect(pendingBarcode) {
+                previewScale = 1f
+            }
             AlertDialog(
                 onDismissRequest = {
                     pendingImagePath?.let { File(it).delete() }
                     pendingBarcode = null
                     pendingImagePath = null
                     previewBitmap = null
+                    previewScale = 1f
                 },
                 confirmButton = {
                     TextButton(onClick = {
@@ -394,6 +403,7 @@ fun ManualCameraScanView(
                         pendingBarcode = null
                         pendingImagePath = null
                         previewBitmap = null
+                        previewScale = 1f
                         if (code != null) {
                             onBarcodeFound(code, path)
                         }
@@ -407,6 +417,7 @@ fun ManualCameraScanView(
                         pendingBarcode = null
                         pendingImagePath = null
                         previewBitmap = null
+                        previewScale = 1f
                     }) {
                         Text("Отклонить")
                     }
@@ -423,7 +434,16 @@ fun ManualCameraScanView(
                                 contentDescription = "Предпросмотр штрихкода",
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(250.dp),
+                                    .height(250.dp)
+                                    .graphicsLayer {
+                                        scaleX = previewScale
+                                        scaleY = previewScale
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTransformGestures { _, _, zoom, _ ->
+                                            previewScale = (previewScale * zoom).coerceIn(1f, 5f)
+                                        }
+                                    },
                                 contentScale = ContentScale.Fit
                             )
                         }

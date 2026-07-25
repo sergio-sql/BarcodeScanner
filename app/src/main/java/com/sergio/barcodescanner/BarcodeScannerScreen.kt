@@ -20,11 +20,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -47,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
@@ -135,17 +134,14 @@ fun BarcodeScannerScreen() {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                IconButton(onClick = onSelectAllClick) {
-                                    val icon = when (selectAllState.value) {
-                                        SelectAllState.Checked -> Icons.Default.CheckBox
-                                        SelectAllState.Indeterminate -> Icons.Default.IndeterminateCheckBox
-                                        else -> Icons.Default.CheckBoxOutlineBlank
-                                    }
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = "Выбрать все"
-                                    )
-                                }
+                                TriStateCheckbox(
+                                    state = when (selectAllState.value) {
+                                        SelectAllState.Checked -> ToggleableState.On
+                                        SelectAllState.Indeterminate -> ToggleableState.Indeterminate
+                                        else -> ToggleableState.Off
+                                    },
+                                    onClick = onSelectAllClick
+                                )
                             }
                         }
                     },
