@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import java.io.File
 
 @kotlin.OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +68,7 @@ fun BarcodeScannerScreen() {
     }
     val hasSelection = remember { derivedStateOf<Boolean> { barcodeList.any { it.isSelected } } }
     var currentImagePath by remember { mutableStateOf<String?>(null) }
+    var viewerBarcode by remember { mutableStateOf<String?>(null) }
 
     var isCameraOpen by remember { mutableStateOf(false) }
 
@@ -262,7 +264,16 @@ fun BarcodeScannerScreen() {
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                     if (!item.imagePath.isNullOrBlank()) {
-                                        IconButton(onClick = { currentImagePath = item.imagePath }) {
+                                        IconButton(onClick = {
+                                            val absolutePath = item.imagePath?.let { path ->
+                                                when {
+                                                    path.startsWith("content://") || path.startsWith("file://") -> path
+                                                    else -> File(context.filesDir, path).absolutePath
+                                                }
+                                            }
+                                            currentImagePath = absolutePath
+                                            viewerBarcode = item.code
+                                        }) {
                                             Icon(
                                                 imageVector = Icons.Default.Visibility,
                                                 contentDescription = "Просмотреть изображение"
@@ -279,9 +290,15 @@ fun BarcodeScannerScreen() {
     }
 
     currentImagePath?.let { path ->
-        BarcodeImagePreviewDialog(
+        FullScreenImagePreview(
             imagePath = path,
-            onDismiss = { currentImagePath = null }
+            barcode = viewerBarcode,
+            onSave = {},
+            onDismiss = {
+                currentImagePath = null
+                viewerBarcode = null
+            },
+            showActions = false
         )
     }
 }

@@ -14,16 +14,12 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,17 +30,17 @@ import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -58,14 +54,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.sergio.barcodescanner.FullScreenImagePreview
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.io.File
@@ -85,21 +79,33 @@ fun ManualCameraScanView(
     val scanner = remember { BarcodeScanning.getClient() }
     val imageCapture = remember { ImageCapture.Builder().build() }
 
-    var shouldScanNextFrame by remember { mutableStateOf(false) }
-    var isProcessing by remember { mutableStateOf(false) }
+    var isScanning by remember { mutableStateOf(false) }
+    var isCapturing by remember { mutableStateOf(false) }
     var torchEnabled by remember { mutableStateOf(false) }
     var zoomRatio by remember { mutableFloatStateOf(1f) }
     var exposureIndex by remember { mutableIntStateOf(0) }
     var camera by remember { mutableStateOf<Camera?>(null) }
 
-    var pendingBarcode by remember { mutableStateOf<String?>(null) }
-    var pendingImagePath by remember { mutableStateOf<String?>(null) }
-    var previewBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-    var previewScale by remember { mutableFloatStateOf(1f) }
     var detectedBarcode by remember { mutableStateOf<String?>(null) }
     var detectedRect by remember { mutableStateOf<Rect?>(null) }
     var imageSize by remember { mutableStateOf<android.util.Size?>(null) }
     var rotationDegrees by remember { mutableIntStateOf(0) }
+    var capturedImagePath by remember { mutableStateOf<String?>(null) }
+    var capturedBarcode by remember { mutableStateOf<String?>(null) }
+    var isPreviewOpen by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            cameraProviderFuture.addListener({
+                try {
+                    cameraProviderFuture.get().unbindAll()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(context))
+            executor.shutdown()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
@@ -122,8 +128,8 @@ fun ManualCameraScanView(
                     imageAnalysis.setAnalyzer(executor) { imageProxy ->
                         imageSize = android.util.Size(imageProxy.width, imageProxy.height)
                         rotationDegrees = imageProxy.imageInfo.rotationDegrees
-                        if (shouldScanNextFrame && !isProcessing) {
-                            isProcessing = true
+                        if (!isScanning && !isPreviewOpen) {
+                            isScanning = true
                             val mediaImage = imageProxy.image
 
                             if (mediaImage != null) {
@@ -136,49 +142,29 @@ fun ManualCameraScanView(
                                     .addOnSuccessListener { barcodes ->
                                         val firstBarcode = barcodes.firstOrNull()
                                         if (firstBarcode != null) {
-                                            detectedBarcode = firstBarcode.rawValue
-                                            detectedRect = firstBarcode.boundingBox
-                                            val photoFile = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "${System.currentTimeMillis()}.jpg")
-                                            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-                                            imageCapture.takePicture(outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
-                                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                                    val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
-                                                    val bitmap = BitmapFactory.decodeFile(imagePath)
-                                                    ContextCompat.getMainExecutor(context).execute {
-                                                        pendingBarcode = firstBarcode.rawValue
-                                                        pendingImagePath = imagePath
-                                                        previewBitmap = bitmap
-                                                    }
-                                                }
-                                                override fun onError(exception: ImageCaptureException) {
-                                                    ContextCompat.getMainExecutor(context).execute {
-                                                        pendingBarcode = firstBarcode.rawValue
-                                                        pendingImagePath = null
-                                                        previewBitmap = null
-                                                    }
-                                                }
-                                            })
-                                        } else {
-                                            detectedBarcode = null
-                                            detectedRect = null
+                                            val code = firstBarcode.rawValue ?: return@addOnSuccessListener
                                             ContextCompat.getMainExecutor(context).execute {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Штрихкод не найден в кадре",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
+                                                detectedBarcode = code
+                                                detectedRect = firstBarcode.boundingBox
+                                            }
+                                        } else {
+                                            ContextCompat.getMainExecutor(context).execute {
+                                                detectedBarcode = null
+                                                detectedRect = null
                                             }
                                         }
                                     }
                                     .addOnCompleteListener {
-                                        shouldScanNextFrame = false
-                                        isProcessing = false
+                                        ContextCompat.getMainExecutor(context).execute {
+                                            isScanning = false
+                                        }
                                         imageProxy.close()
                                     }
                             } else {
                                 imageProxy.close()
-                                shouldScanNextFrame = false
-                                isProcessing = false
+                                ContextCompat.getMainExecutor(context).execute {
+                                    isScanning = false
+                                }
                             }
                         } else {
                             imageProxy.close()
@@ -216,10 +202,14 @@ fun ManualCameraScanView(
                 val viewH = size.height
 
                 val rotation = rotationDegrees
-                val (srcW, srcH) = if (rotation == 90 || rotation == 270) {
-                    imageH to imageW
+                val srcW: Float
+                val srcH: Float
+                if (rotation == 90 || rotation == 270) {
+                    srcW = imageH
+                    srcH = imageW
                 } else {
-                    imageW to imageH
+                    srcW = imageW
+                    srcH = imageH
                 }
 
                 val scale = kotlin.math.max(viewW / srcW, viewH / srcH)
@@ -231,41 +221,10 @@ fun ManualCameraScanView(
                 val normalizedRight = maxOf(rect.left, rect.right)
                 val normalizedBottom = maxOf(rect.top, rect.bottom)
 
-                val rLeft: Float
-                val rTop: Float
-                val rRight: Float
-                val rBottom: Float
-                when (rotation) {
-                    90 -> {
-                        rLeft = imageH - normalizedBottom
-                        rTop = normalizedLeft.toFloat()
-                        rRight = imageH - normalizedTop
-                        rBottom = normalizedRight.toFloat()
-                    }
-                    180 -> {
-                        rLeft = imageW - normalizedRight
-                        rTop = imageH - normalizedBottom
-                        rRight = imageW - normalizedLeft
-                        rBottom = imageH - normalizedTop
-                    }
-                    270 -> {
-                        rLeft = normalizedTop.toFloat()
-                        rTop = imageW - normalizedRight
-                        rRight = normalizedBottom.toFloat()
-                        rBottom = imageW - normalizedLeft
-                    }
-                    else -> {
-                        rLeft = normalizedLeft.toFloat()
-                        rTop = normalizedTop.toFloat()
-                        rRight = normalizedRight.toFloat()
-                        rBottom = normalizedBottom.toFloat()
-                    }
-                }
-
-                val left = rLeft * scale + offsetX
-                val top = rTop * scale + offsetY
-                val right = rRight * scale + offsetX
-                val bottom = rBottom * scale + offsetY
+                val left = normalizedLeft * scale + offsetX
+                val top = normalizedTop * scale + offsetY
+                val right = normalizedRight * scale + offsetX
+                val bottom = normalizedBottom * scale + offsetY
 
                 drawRect(
                     color = Color.Green,
@@ -367,95 +326,88 @@ fun ManualCameraScanView(
                 camera?.cameraControl?.setExposureCompensationIndex(exposureIndex)
             }
 
-            Button(
+            FloatingActionButton(
                 onClick = {
-                    if (!isProcessing) {
-                        shouldScanNextFrame = true
+                    if (detectedBarcode != null && !isCapturing) {
+                        isCapturing = true
+                        try {
+                            val picturesDir = File(context.filesDir, "barcode_images")
+                            if (!picturesDir.exists()) {
+                                picturesDir.mkdirs()
+                            }
+                            val photoFile = File(picturesDir, "${System.currentTimeMillis()}.jpg")
+                            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                            imageCapture.takePicture(outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
+                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                    val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
+                                    ContextCompat.getMainExecutor(context).execute {
+                                        val code = detectedBarcode
+                                        detectedBarcode = null
+                                        detectedRect = null
+                                        if (code != null) {
+                                            capturedBarcode = code
+                                            capturedImagePath = imagePath
+                                        }
+                                        isCapturing = false
+                                    }
+                                }
+                                override fun onError(exception: ImageCaptureException) {
+                                    ContextCompat.getMainExecutor(context).execute {
+                                        Toast.makeText(context, "Ошибка сохранения: ${exception.message}", Toast.LENGTH_SHORT).show()
+                                        detectedBarcode = null
+                                        detectedRect = null
+                                        isCapturing = false
+                                    }
+                                }
+                            })
+                        } catch (e: Exception) {
+                            ContextCompat.getMainExecutor(context).execute {
+                                Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                                detectedBarcode = null
+                                detectedRect = null
+                                isCapturing = false
+                            }
+                        }
                     }
                 },
-                modifier = Modifier.height(56.dp)
+                modifier = Modifier
+                    .size(72.dp)
+                    .padding(bottom = 16.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
             ) {
                 Icon(
                     imageVector = Icons.Default.Camera,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(if (isProcessing) "Сканирование..." else "Считать штрихкод")
-            }
+                    contentDescription = "Сохранить штрихкод",
+                    modifier = Modifier.size(36.dp)
+            )
         }
 
-        if (pendingBarcode != null) {
-            LaunchedEffect(pendingBarcode) {
-                previewScale = 1f
-            }
-            AlertDialog(
-                onDismissRequest = {
-                    pendingImagePath?.let { File(it).delete() }
-                    pendingBarcode = null
-                    pendingImagePath = null
-                    previewBitmap = null
-                    previewScale = 1f
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val code = pendingBarcode
-                        val path = pendingImagePath
-                        pendingBarcode = null
-                        pendingImagePath = null
-                        previewBitmap = null
-                        previewScale = 1f
-                        if (code != null) {
-                            onBarcodeFound(code, path)
-                        }
-                    }) {
-                        Text("Сохранить")
+        if (capturedBarcode != null && capturedImagePath != null) {
+            isPreviewOpen = true
+            val currentBarcode = capturedBarcode
+            val currentPath = capturedImagePath
+            FullScreenImagePreview(
+                imagePath = currentPath,
+                barcode = currentBarcode,
+                onSave = {
+                    if (currentBarcode != null && currentPath != null) {
+                        onBarcodeFound(currentBarcode, currentPath)
+                        Toast.makeText(context, "Сохранено: $currentBarcode", Toast.LENGTH_SHORT).show()
                     }
+                    capturedBarcode = null
+                    capturedImagePath = null
+                    isPreviewOpen = false
+                    onClose()
                 },
-                dismissButton = {
-                    TextButton(onClick = {
-                        pendingImagePath?.let { File(it).delete() }
-                        pendingBarcode = null
-                        pendingImagePath = null
-                        previewBitmap = null
-                        previewScale = 1f
-                    }) {
-                        Text("Отклонить")
-                    }
-                },
-                title = { Text("Предпросмотр") },
-                text = {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        previewBitmap?.let {
-                            Image(
-                                bitmap = it.asImageBitmap(),
-                                contentDescription = "Предпросмотр штрихкода",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(250.dp)
-                                    .graphicsLayer {
-                                        scaleX = previewScale
-                                        scaleY = previewScale
-                                    }
-                                    .pointerInput(Unit) {
-                                        detectTransformGestures { _, _, zoom, _ ->
-                                            previewScale = (previewScale * zoom).coerceIn(1f, 5f)
-                                        }
-                                    },
-                                contentScale = ContentScale.Fit
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = pendingBarcode ?: "",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
+                onDismiss = {
+                    currentPath?.let { File(it).delete() }
+                    capturedBarcode = null
+                    capturedImagePath = null
+                    isPreviewOpen = false
+                }
             )
         }
     }
+}
 }
