@@ -386,20 +386,6 @@ fun BarcodeScannerScreen() {
                                     expanded = expandedActions,
                                     onDismissRequest = { expandedActions = false }
                                 ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Настройки") },
-                                        onClick = {
-                                            expandedActions = false
-                                            showSettings = true
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Выход") },
-                                        onClick = {
-                                            expandedActions = false
-                                            (context as ComponentActivity).finish()
-                                        }
-                                    )
                                     if (hasSelection.value) {
                                         DropdownMenuItem(
                                             text = { Text("Копировать штрихкоды") },
@@ -435,6 +421,20 @@ fun BarcodeScannerScreen() {
                                             }
                                         )
                                     }
+                                    DropdownMenuItem(
+                                        text = { Text("Настройки") },
+                                        onClick = {
+                                            expandedActions = false
+                                            showSettings = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Выход") },
+                                        onClick = {
+                                            expandedActions = false
+                                            (context as ComponentActivity).finish()
+                                        }
+                                    )
                                 }
                             }
                         }
