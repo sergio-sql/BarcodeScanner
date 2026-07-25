@@ -13,6 +13,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.sergio.barcodescanner.ui.theme.BarcodeScannerTheme
+import com.sergio.barcodescanner.ui.theme.ThemeMode
+import com.sergio.barcodescanner.ui.theme.ThemePreference
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,8 +28,10 @@ class MainActivity : ComponentActivity() {
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         
+        val themeMode = ThemePreference.getThemeMode(this)
+        
         setContent {
-            BarcodeScannerTheme {
+            BarcodeScannerTheme(themeMode = themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
