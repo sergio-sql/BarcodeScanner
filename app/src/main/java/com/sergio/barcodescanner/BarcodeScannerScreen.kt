@@ -149,27 +149,11 @@ fun BarcodeScannerScreen() {
                     },
                     actions = {
                         if (hasSelection.value) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(onClick = onDeleteClick) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Удалить выбранные"
-                                    )
-                                }
-                                IconButton(onClick = {
-                                    barcodeList.forEachIndexed { i, item ->
-                                        barcodeList[i] = item.copy(isSelected = false)
-                                    }
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Отменить выбор"
-                                    )
-                                }
+                            IconButton(onClick = onDeleteClick) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Удалить выбранные"
+                                )
                             }
                         }
                         IconButton(onClick = onAddClick) {
