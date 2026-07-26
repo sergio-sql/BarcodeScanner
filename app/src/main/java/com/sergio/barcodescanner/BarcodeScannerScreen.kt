@@ -14,7 +14,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,12 +21,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
@@ -39,10 +36,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
@@ -62,12 +57,12 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.sergio.barcodescanner.ui.theme.ThemePreference
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.util.ArrayList
-import com.sergio.barcodescanner.ui.theme.ThemeMode
-import com.sergio.barcodescanner.ui.theme.ThemePreference
+import androidx.core.content.edit
+import androidx.core.net.toUri
 
 private fun saveBarcodeList(context: Context, list: List<BarcodeItem>) {
     val json = JSONArray()
@@ -79,7 +74,7 @@ private fun saveBarcodeList(context: Context, list: List<BarcodeItem>) {
         json.put(obj)
     }
     val prefs = context.getSharedPreferences("barcode_prefs", Context.MODE_PRIVATE)
-    prefs.edit().putString("barcode_list", json.toString()).apply()
+    prefs.edit { putString("barcode_list", json.toString()) }
 }
 
 private fun loadBarcodeList(context: Context): List<BarcodeItem> {
@@ -119,7 +114,7 @@ private fun copyBarcodeImage(context: Context, imagePath: String?) {
     try {
         val file = if (imagePath.startsWith("content://") || imagePath.startsWith("file://")) {
             File(context.cacheDir, "shared_image_${System.currentTimeMillis()}.jpg").also { shared ->
-                context.contentResolver.openInputStream(Uri.parse(imagePath))?.use { input ->
+                context.contentResolver.openInputStream(imagePath.toUri())?.use { input ->
                     shared.outputStream().use { output ->
                         input.copyTo(output)
                     }
@@ -157,7 +152,7 @@ private fun shareBarcodeImage(context: Context, imagePath: String?) {
     try {
         val file = if (imagePath.startsWith("content://") || imagePath.startsWith("file://")) {
             File(context.cacheDir, "shared_image_${System.currentTimeMillis()}.jpg").also { shared ->
-                context.contentResolver.openInputStream(Uri.parse(imagePath))?.use { input ->
+                context.contentResolver.openInputStream(imagePath.toUri())?.use { input ->
                     shared.outputStream().use { output ->
                         input.copyTo(output)
                     }
@@ -192,7 +187,7 @@ private fun shareSelectedImages(context: Context, items: List<BarcodeItem>) {
             val imagePath = item.imagePath ?: continue
             val file = if (imagePath.startsWith("content://") || imagePath.startsWith("file://")) {
                 File(shareDir, "shared_${index}_${System.currentTimeMillis()}.jpg").also { shared ->
-                    context.contentResolver.openInputStream(Uri.parse(imagePath))?.use { input ->
+                    context.contentResolver.openInputStream(imagePath.toUri())?.use { input ->
                         shared.outputStream().use { output ->
                             input.copyTo(output)
                         }
@@ -222,7 +217,7 @@ private fun shareSelectedImages(context: Context, items: List<BarcodeItem>) {
     }
 }
 
-@kotlin.OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BarcodeScannerScreen() {
     val context = LocalContext.current
