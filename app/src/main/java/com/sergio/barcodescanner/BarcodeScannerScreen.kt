@@ -319,25 +319,6 @@ fun BarcodeScannerScreen() {
         barcodeList.addAll(saved)
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            saveBarcodeList(context, barcodeList)
-        }
-    }
-
-    currentImagePath?.let { path ->
-        FullScreenImagePreview(
-            imagePath = path,
-            barcode = viewerBarcode,
-            onSave = {  },
-            onDismiss = {
-                currentImagePath = null
-                viewerBarcode = null
-            },
-            showActions = false
-        )
-    }
-
     if (showSettings) {
         SettingsScreen(
             currentThemeMode = currentThemeMode,
@@ -451,18 +432,39 @@ fun BarcodeScannerScreen() {
                     ManualCameraScanView(
                         scannedCount = barcodeList.size,
                         onBarcodeFound = { barcodeValue, imagePath ->
-                            if (barcodeList.any { it.code == barcodeValue }) {
+                            val existingIndex = barcodeList.indexOfFirst { it.code == barcodeValue }
+                            if (existingIndex != -1) {
+                                val existingItem = barcodeList[existingIndex]
+                                existingItem.imagePath?.let { oldPath ->
+                                    if (oldPath.startsWith("/") && File(oldPath).exists()) {
+                                        File(oldPath).delete()
+                                    }
+                                }
+                                barcodeList.removeAt(existingIndex)
+                                barcodeList.add(
+                                    BarcodeItem(
+                                        id = existingItem.id,
+                                        code = barcodeValue,
+                                        imagePath = imagePath,
+                                        isSelected = existingItem.isSelected
+                                    )
+                                )
                                 Toast.makeText(
                                     context,
-                                    "Этот штрихкод уже есть в списке",
+                                    "Штрихкод уже есть в списке, фото обновлено",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             } else {
-                                barcodeList.add(0, BarcodeItem(code = barcodeValue, imagePath = imagePath))
-                                saveBarcodeList(context, barcodeList)
+                                barcodeList.add(BarcodeItem(code = barcodeValue, imagePath = imagePath))
                             }
+                            saveBarcodeList(context, barcodeList)
                         },
-                        onClose = { isCameraOpen = false }
+                        onClose = { isCameraOpen = false },
+                        onAfterPhotoAction = { saved ->
+                            if (saved) {
+                                Toast.makeText(context, "Фото сохранено", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     )
                 } else {
                     if (barcodeList.isEmpty()) {
@@ -495,15 +497,15 @@ fun BarcodeScannerScreen() {
                                             .padding(16.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                Checkbox(
-                                    checked = item.isSelected,
-                                    onCheckedChange = { checked ->
-                                        val currentIndex = barcodeList.indexOf(item)
-                                        if (currentIndex != -1) {
-                                            barcodeList[currentIndex] = item.copy(isSelected = checked)
-                                        }
-                                    }
-                                )
+                                        Checkbox(
+                                            checked = item.isSelected,
+                                            onCheckedChange = { checked ->
+                                                val currentIndex = barcodeList.indexOf(item)
+                                                if (currentIndex != -1) {
+                                                    barcodeList[currentIndex] = item.copy(isSelected = checked)
+                                                }
+                                            }
+                                        )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
                                             text = "${index + 1}.",
@@ -542,6 +544,25 @@ fun BarcodeScannerScreen() {
                 }
             }
         }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            saveBarcodeList(context, barcodeList)
+        }
+    }
+
+    currentImagePath?.let { path ->
+        FullScreenImagePreview(
+            imagePath = path,
+            barcode = viewerBarcode,
+            onSave = {  },
+            onDismiss = {
+                currentImagePath = null
+                viewerBarcode = null
+            },
+            showActions = false
+        )
     }
 }
 

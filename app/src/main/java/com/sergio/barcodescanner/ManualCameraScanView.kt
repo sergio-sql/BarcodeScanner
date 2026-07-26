@@ -117,7 +117,8 @@ private fun cropToBoundingBox(
 fun ManualCameraScanView(
     scannedCount: Int,
     onBarcodeFound: (String, String?) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onAfterPhotoAction: ((Boolean) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -456,13 +457,14 @@ fun ManualCameraScanView(
                     capturedBarcode = null
                     capturedImagePath = null
                     isPreviewOpen = false
-                    onClose()
+                    onAfterPhotoAction?.invoke(true)
                 },
                 onDismiss = {
                     currentPath?.let { File(it).delete() }
                     capturedBarcode = null
                     capturedImagePath = null
                     isPreviewOpen = false
+                    onAfterPhotoAction?.invoke(false)
                 }
             )
         }
