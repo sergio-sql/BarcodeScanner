@@ -165,7 +165,7 @@ fun ManualCameraScanView(
                         val cameraProvider = cameraProviderFuture.get()
 
                         val preview = Preview.Builder().build().also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
+                            it.surfaceProvider = previewView.surfaceProvider
                         }
 
                         val imageAnalysis = ImageAnalysis.Builder()
@@ -388,7 +388,7 @@ fun ManualCameraScanView(
                                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                                         val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
                                         ContextCompat.getMainExecutor(context).execute {
-                                            val shutterSound = MediaActionSound().apply { play(MediaActionSound.SHUTTER_CLICK) }
+                                            MediaActionSound().play(MediaActionSound.SHUTTER_CLICK)
                                             val code = detectedBarcode
                                             val rect = detectedRect
                                             val rotation = rotationDegrees
