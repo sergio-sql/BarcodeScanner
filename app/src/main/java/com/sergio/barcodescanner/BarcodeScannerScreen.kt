@@ -413,7 +413,7 @@ fun BarcodeScannerScreen() {
                                         text = { Text("Выход") },
                                         onClick = {
                                             expandedActions = false
-                                            (context as ComponentActivity).finish()
+                                            context.finish()
                                         }
                                     )
                                 }
@@ -521,7 +521,7 @@ fun BarcodeScannerScreen() {
                                         )
                                         if (!item.imagePath.isNullOrBlank()) {
                                             IconButton(onClick = {
-                                                val absolutePath = item.imagePath?.let { path ->
+                                                val absolutePath = item.imagePath.let { path ->
                                                     when {
                                                         path.startsWith("content://") || path.startsWith("file://") -> path
                                                         else -> File(context.filesDir, path).absolutePath
