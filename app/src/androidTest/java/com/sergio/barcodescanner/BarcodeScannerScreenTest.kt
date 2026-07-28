@@ -13,21 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +32,6 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
@@ -127,40 +117,6 @@ class BarcodeScannerScreenTest {
         composeTestRule.onNodeWithText("ABC123").assertIsDisplayed()
         composeTestRule.onNodeWithText("1.").assertIsDisplayed()
     }
-
-    @Test
-    fun barcodeItem_withImage_showsVisibilityIcon() {
-        val items = listOf(
-            BarcodeItem(code = "IMAGE123", imagePath = "/path/to/image.jpg")
-        )
-
-        composeTestRule.setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    BarcodeScannerScreenTestContent(items = items)
-                }
-            }
-        }
-
-        composeTestRule.onNodeWithContentDescription("Просмотреть изображение").assertIsDisplayed()
-    }
-
-    @Test
-    fun barcodeItem_withoutImage_hidesVisibilityIcon() {
-        val items = listOf(
-            BarcodeItem(code = "NOIMAGE")
-        )
-
-        composeTestRule.setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    BarcodeScannerScreenTestContent(items = items)
-                }
-            }
-        }
-
-        composeTestRule.onNodeWithContentDescription("Просмотреть изображение").assertDoesNotExist()
-    }
 }
 
 @Composable
@@ -212,14 +168,6 @@ fun BarcodeScannerScreenTestContent(items: List<BarcodeItem>) {
                                 .weight(1f),
                             style = MaterialTheme.typography.bodyLarge
                         )
-                        if (!item.imagePath.isNullOrBlank()) {
-                            IconButton(onClick = {}) {
-                                Icon(
-                                    imageVector = Icons.Default.Visibility,
-                                    contentDescription = "Просмотреть изображение"
-                                )
-                            }
-                        }
                     }
                 }
             }

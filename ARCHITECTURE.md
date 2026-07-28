@@ -2,19 +2,21 @@
 
 ## Общая схема
 
-Приложение состоит из одного экрана (`BarcodeScannerScreen`) и вспомогательных компонентов.
+Приложение состоит из одного главного экрана (`BarcodeScannerScreen`), вспомогательных экранов и компонентов камеры.
 
 ```
 MainActivity
-└── BarcodeScannerScreen
-    ├── TopAppBar (выбор всех, удаление, добавление)
-    ├── LazyColumn (список штрихкодов)
-    │   └── Card (чекбокс, номер, код, иконка глаза)
-    └── ManualCameraScanView (камера + ML Kit)
-        ├── PreviewView
-        ├── ImageAnalysis
-        ├── ImageCapture
-        └── AlertDialog (предпросмотр фото)
+└── BarcodeScannerTheme
+    └── BarcodeScannerScreen
+        ├── TopAppBar (TriStateCheckbox, +, share, copy, delete, ⋮)
+        ├── LazyColumn (список штрихкодов)
+        │   └── Card (чекбокс, номер, код)
+        └── ManualCameraScanView (камера + ML Kit)
+            ├── PreviewView
+            ├── ImageAnalysis
+            ├── ImageCapture
+            └── FullScreenImagePreview (предпросмотр фото)
+                └── SettingsScreen (отдельный экран настроек)
 ```
 
 ## Модель данных
@@ -26,14 +28,24 @@ data class BarcodeItem(
     val id: String,
     val code: String,
     val imagePath: String?,
-    var isSelected: Boolean
+    var isSelected: Boolean = true
 )
 ```
 
 - `id` — уникальный идентификатор
 - `code` — отсканированный штрихкод
 - `imagePath` — путь к сохраненному фото
-- `isSelected` — признак выбора в списке
+- `isSelected` — признак выбора в списке (по умолчанию `true`)
+
+### ThemeMode
+
+```kotlin
+enum class ThemeMode { LIGHT, DARK, AUTO }
+```
+
+- `LIGHT` — светлая тема
+- `DARK` — темная тема
+- `AUTO` — следование системной теме (по умолчанию)
 
 ## Основные экраны
 
@@ -41,10 +53,18 @@ data class BarcodeItem(
 
 Главный экран списка. Отвечает за:
 - отображение списка `BarcodeItem`;
-- выбор всех/снятие выбора;
+- выбор всех/снятие выбора через `TriStateCheckbox`;
 - удаление выбранных элементов и фото;
 - открытие камеры;
-- полноэкранный просмотр фото (`BarcodeImagePreviewDialog`).
+- массовые действия: копирование, шеринг текста/фото, удаление;
+- полноэкранный просмотр фото через `FullScreenImagePreview`;
+- открытие экрана настроек `SettingsScreen`.
+
+### SettingsScreen
+
+Отдельный экран настроек. Отвечает за:
+- выбор темы приложения (светлая/темная/авто);
+- возврат на главный экран по кнопке «Назад».
 
 ### ManualCameraScanView
 
@@ -52,25 +72,36 @@ data class BarcodeItem(
 - привязку CameraX к жизненному циклу;
 - анализ кадров через `ImageAnalysis`;
 - распознавание штрихкодов через ML Kit;
-- сохранение фото через `ImageCapture`;
+- сохранение фото через `ImageCapture` с обрезкой по `boundingBox`;
+- воспроизведение звука затвора;
 - управление вспышкой, зумом, экспозицией;
 - отображение рамки вокруг найденного штрихкода;
-- выбор конкретного штрихкода через `FilterChip` под кадром;
-- предпросмотр с кнопками «Сохранить»/«Отклонить».
+- предпросмотр с кнопками «Сохранить»/«Отклонить»;
+- возврат на камеру после закрытия превью.
 
-### BarcodeImagePreviewDialog
+### FullScreenImagePreview
 
-Диалог для просмотра сохраненного фото штрихкода.
+Полноэкранный просмотр изображения. Отвечает за:
+- загрузку и отображение изображения;
+- зум pinch-жестами;
+- показ номера элемента в списке (режим списка);
+- переход между изображениями по свайпу влево/вправо (только при открытии из списка).
 
 ## Состояния
 
 - `barcodeList` — `mutableStateListOf<BarcodeItem>`
-- `selectedItems` — derived state для тулбара
-- `isAllSelected` — derived state для чекбокса "Выбрать все"
+- `hasSelection` — derived state для тулбара
+- `selectAllState` — derived state для `TriStateCheckbox`
 - `currentImagePath` — путь к фото для просмотра
-- `pendingBarcodes` — список найденных в кадре штрихкодов
-- `selectedDetectedIndex` — выбранный штрихкод в камере
-- `previewBitmap` — bitmap для предпросмотра
+- `viewerBarcode` — код штрихкода для превью
+- `showSettings` — флаг открытия экрана настроек
+- `currentThemeMode` — текущий режим темы
+- `isCameraOpen` — флаг открытия камеры
+
+## Хранение
+
+- Штрихкоды и фото: `SharedPreferences` + файлы в `context.filesDir/barcode_images`
+- Тема: `SharedPreferences` (`barcode_prefs`)
 
 ## Тесты
 

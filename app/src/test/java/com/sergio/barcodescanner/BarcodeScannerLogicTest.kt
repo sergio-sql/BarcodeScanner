@@ -13,7 +13,7 @@ class BarcodeItemTest {
 
         assertEquals("123456", item.code)
         assertEquals(null, item.imagePath)
-        assertFalse(item.isSelected)
+        assertTrue(item.isSelected)
         assertFalse(item.id.isEmpty())
     }
 
@@ -64,9 +64,9 @@ class SelectAllStateTest {
     @Test
     fun `select all state transitions`() {
         val items = mutableListOf<BarcodeItem>(
-            BarcodeItem(code = "1", isSelected = false),
-            BarcodeItem(code = "2", isSelected = false),
-            BarcodeItem(code = "3", isSelected = false)
+            BarcodeItem(code = "1", isSelected = true),
+            BarcodeItem(code = "2", isSelected = true),
+            BarcodeItem(code = "3", isSelected = true)
         )
 
         val state = when {
@@ -76,7 +76,7 @@ class SelectAllStateTest {
             else -> SelectAllState.Unchecked
         }
 
-        assertEquals(SelectAllState.Unchecked, state)
+        assertEquals(SelectAllState.Checked, state)
     }
 
     @Test
