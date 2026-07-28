@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,12 +22,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -38,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
@@ -92,7 +97,7 @@ private fun loadBarcodeList(context: Context): List<BarcodeItem> {
                     id = obj.getString("id"),
                     code = obj.getString("code"),
                     imagePath = imagePath,
-                    isSelected = false
+                    isSelected = true
                 )
             )
         }
@@ -240,6 +245,7 @@ fun BarcodeScannerScreen() {
     var currentThemeMode by remember { mutableStateOf(ThemePreference.getThemeMode(context)) }
 
     var expandedActions by remember { mutableStateOf(false) }
+    var expandedShare by remember { mutableStateOf(false) }
 
     var isCameraOpen by remember { mutableStateOf(false) }
 
@@ -345,6 +351,54 @@ fun BarcodeScannerScreen() {
                             }
                         },
                         actions = {
+                            if (hasSelection.value) {
+                                IconButton(onClick = {
+                                    val selectedCodes = barcodeList.filter { it.isSelected }.joinToString("\n") { it.code }
+                                    copyBarcodeText(context, selectedCodes)
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Копировать штрихкоды"
+                                    )
+                                }
+                                Box {
+                                    IconButton(onClick = { expandedShare = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = "Поделиться"
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = expandedShare,
+                                        onDismissRequest = { expandedShare = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Поделиться текстом") },
+                                            onClick = {
+                                                val selectedCodes = barcodeList.filter { it.isSelected }.joinToString("\n") { it.code }
+                                                shareBarcodeText(context, selectedCodes)
+                                                expandedShare = false
+                                            }
+                                        )
+                                        val selectedWithImages = barcodeList.filter { it.isSelected && !it.imagePath.isNullOrBlank() }
+                                        if (selectedWithImages.isNotEmpty()) {
+                                            DropdownMenuItem(
+                                                text = { Text("Поделиться фото") },
+                                                onClick = {
+                                                    shareSelectedImages(context, selectedWithImages)
+                                                    expandedShare = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                                IconButton(onClick = onDeleteClick) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Удалить"
+                                    )
+                                }
+                            }
                             IconButton(onClick = onAddClick) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
@@ -362,41 +416,6 @@ fun BarcodeScannerScreen() {
                                     expanded = expandedActions,
                                     onDismissRequest = { expandedActions = false }
                                 ) {
-                                    if (hasSelection.value) {
-                                        DropdownMenuItem(
-                                            text = { Text("Копировать штрихкоды") },
-                                            onClick = {
-                                                val selectedCodes = barcodeList.filter { it.isSelected }.joinToString("\n") { it.code }
-                                                copyBarcodeText(context, selectedCodes)
-                                                expandedActions = false
-                                            }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("Поделиться штрихкодами") },
-                                            onClick = {
-                                                val selectedCodes = barcodeList.filter { it.isSelected }.joinToString("\n") { it.code }
-                                                shareBarcodeText(context, selectedCodes)
-                                                expandedActions = false
-                                            }
-                                        )
-                                        val selectedWithImages = barcodeList.filter { it.isSelected && !it.imagePath.isNullOrBlank() }
-                                        if (selectedWithImages.isNotEmpty()) {
-                                            DropdownMenuItem(
-                                                text = { Text("Поделиться изображениями") },
-                                                onClick = {
-                                                    shareSelectedImages(context, selectedWithImages)
-                                                    expandedActions = false
-                                                }
-                                            )
-                                        }
-                                        DropdownMenuItem(
-                                            text = { Text("Удалить") },
-                                            onClick = {
-                                                onDeleteClick()
-                                                expandedActions = false
-                                            }
-                                        )
-                                    }
                                     DropdownMenuItem(
                                         text = { Text("Настройки") },
                                         onClick = {
@@ -481,7 +500,24 @@ fun BarcodeScannerScreen() {
                         ) {
                             itemsIndexed(barcodeList) { index, item ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onDoubleTap = {
+                                                    if (!item.imagePath.isNullOrBlank()) {
+                                                        val absolutePath = item.imagePath.let { path ->
+                                                            when {
+                                                                path.startsWith("content://") || path.startsWith("file://") -> path
+                                                                else -> File(context.filesDir, path).absolutePath
+                                                            }
+                                                        }
+                                                        currentImagePath = absolutePath
+                                                        viewerBarcode = item.code
+                                                    }
+                                                }
+                                            )
+                                        },
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                                     )
@@ -514,23 +550,6 @@ fun BarcodeScannerScreen() {
                                                 .weight(1f),
                                             style = MaterialTheme.typography.bodyLarge
                                         )
-                                        if (!item.imagePath.isNullOrBlank()) {
-                                            IconButton(onClick = {
-                                                val absolutePath = item.imagePath.let { path ->
-                                                    when {
-                                                        path.startsWith("content://") || path.startsWith("file://") -> path
-                                                        else -> File(context.filesDir, path).absolutePath
-                                                    }
-                                                }
-                                                currentImagePath = absolutePath
-                                                viewerBarcode = item.code
-                                            }) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Visibility,
-                                                    contentDescription = "Просмотреть изображение"
-                                                )
-                                            }
-                                        }
                                     }
                                 }
                             }
@@ -548,6 +567,7 @@ fun BarcodeScannerScreen() {
     }
 
     currentImagePath?.let { path ->
+        val listIndex = barcodeList.indexOfFirst { it.code == viewerBarcode }
         FullScreenImagePreview(
             imagePath = path,
             barcode = viewerBarcode,
@@ -556,7 +576,9 @@ fun BarcodeScannerScreen() {
                 currentImagePath = null
                 viewerBarcode = null
             },
-            showActions = false
+            showActions = false,
+            barcodeList = barcodeList,
+            currentIndex = if (listIndex >= 0) listIndex else 0
         )
     }
 }

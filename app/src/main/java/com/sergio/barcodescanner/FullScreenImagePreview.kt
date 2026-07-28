@@ -3,6 +3,7 @@ package com.sergio.barcodescanner
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -48,7 +50,9 @@ fun FullScreenImagePreview(
     barcode: String?,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
-    showActions: Boolean = true
+    showActions: Boolean = true,
+    barcodeList: List<BarcodeItem>? = null,
+    currentIndex: Int = 0
 ) {
     val context = LocalContext.current
     val bitmapState = remember { mutableStateOf<android.graphics.Bitmap?>(null) }
@@ -56,30 +60,33 @@ fun FullScreenImagePreview(
     val maxScaleState = remember { mutableFloatStateOf(1f) }
     val viewportSizeState = remember { mutableStateOf<Size>(Size.Zero) }
     val loadError = remember { mutableStateOf<String?>(null) }
+    val activeIndexState = remember { mutableIntStateOf(currentIndex) }
+    val activeItem = barcodeList?.getOrNull(activeIndexState.value)
+    val activePath = activeItem?.imagePath ?: imagePath
 
-    LaunchedEffect(imagePath) {
-                            loadError.value = null
-        if (imagePath != null) {
+    LaunchedEffect(activePath) {
+        loadError.value = null
+        if (activePath != null) {
             try {
                 bitmapState.value = when {
-                    imagePath.startsWith("content://") || imagePath.startsWith("file://") -> {
-                        val uri = imagePath.toUri()
+                    activePath.startsWith("content://") || activePath.startsWith("file://") -> {
+                        val uri = activePath.toUri()
                         val stream = context.contentResolver.openInputStream(uri)
                         stream?.use { input ->
                             BitmapFactory.decodeStream(input)
                         }
                     }
                     else -> {
-                        val file = File(imagePath)
+                        val file = File(activePath)
                         if (!file.exists()) {
-                            throw java.io.FileNotFoundException("Файл не найден: $imagePath")
+                            throw java.io.FileNotFoundException("Файл не найден: $activePath")
                         }
-                        BitmapFactory.decodeFile(imagePath)
+                        BitmapFactory.decodeFile(activePath)
                     }
                 }
 
                 if (bitmapState.value == null) {
-                                    loadError.value = "Не удалось декодировать изображение"
+                    loadError.value = "Не удалось декодировать изображение"
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -106,10 +113,35 @@ fun FullScreenImagePreview(
         }
     }
 
+    val listMode = barcodeList != null && barcodeList.isNotEmpty()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .then(
+                if (listMode) {
+                    Modifier.pointerInput(Unit) {
+                        var dragOffsetX = 0f
+                        detectDragGestures(
+                            onDrag = { change, dragAmount ->
+                                dragOffsetX += dragAmount.x
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                if (dragOffsetX < -100) {
+                                    val newIndex = (activeIndexState.value + 1).coerceAtMost(barcodeList.size - 1)
+                                    activeIndexState.value = newIndex
+                                } else if (dragOffsetX > 100) {
+                                    val newIndex = (activeIndexState.value - 1).coerceAtLeast(0)
+                                    activeIndexState.value = newIndex
+                                }
+                                dragOffsetX = 0f
+                            }
+                        )
+                    }
+                } else Modifier
+            )
     ) {
         bitmap?.let {
             Image(
@@ -123,11 +155,6 @@ fun FullScreenImagePreview(
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
-                    }
-                    .pointerInput(Unit) {
-                        detectTransformGestures { _, _, zoom, _ ->
-                            scaleState.floatValue = (scaleState.floatValue * zoom).coerceIn(1f, maxScale)
-                        }
                     },
                 contentScale = ContentScale.Fit
             )
@@ -155,8 +182,8 @@ fun FullScreenImagePreview(
                         )
                         Spacer(modifier = Modifier.padding(top = 16.dp))
                         Button(onClick = {
-        loadError.value = null
-                            imagePath?.let { path ->
+                            loadError.value = null
+                            activePath?.let { path ->
                                 try {
                                     bitmapState.value = when {
                                         path.startsWith("content://") || path.startsWith("file://") -> {
@@ -171,7 +198,7 @@ fun FullScreenImagePreview(
                                         }
                                     }
                                     if (bitmapState.value == null) {
-                    loadError.value = "Не удалось декодировать изображение"
+                                        loadError.value = "Не удалось декодировать изображение"
                                     }
                                 } catch (e: Exception) {
                                     loadError.value = e.message ?: "Ошибка загрузки"
@@ -204,12 +231,26 @@ fun FullScreenImagePreview(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = barcode ?: "",
-                    color = Color.White,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f)
-                )
+                if (listMode) {
+                    Text(
+                        text = "${activeIndexState.value + 1} / ${barcodeList.size}",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = activeItem?.code ?: (barcode ?: ""),
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                } else {
+                    Text(
+                        text = barcode ?: "",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 if (!showActions) {
                     IconButton(onClick = onDismiss) {
                         Icon(
