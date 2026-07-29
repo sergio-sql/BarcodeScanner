@@ -52,6 +52,8 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -249,6 +251,10 @@ fun BarcodeScannerScreen() {
 
     var isCameraOpen by remember { mutableStateOf(false) }
 
+    var cameraZoomRatio by rememberSaveable { mutableFloatStateOf(1f) }
+    var cameraExposureIndex by rememberSaveable { mutableIntStateOf(0) }
+    var cameraTorchEnabled by rememberSaveable { mutableStateOf(false) }
+
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -445,6 +451,12 @@ fun BarcodeScannerScreen() {
                 if (isCameraOpen) {
                     ManualCameraScanView(
                         scannedCount = barcodeList.size,
+                        initialZoomRatio = cameraZoomRatio,
+                        initialExposureIndex = cameraExposureIndex,
+                        initialTorchEnabled = cameraTorchEnabled,
+                        onZoomChange = { cameraZoomRatio = it },
+                        onExposureChange = { cameraExposureIndex = it },
+                        onTorchChange = { cameraTorchEnabled = it },
                         onBarcodeFound = { barcodeValue, imagePath ->
                             val existingIndex = barcodeList.indexOfFirst { it.code == barcodeValue }
                             if (existingIndex != -1) {

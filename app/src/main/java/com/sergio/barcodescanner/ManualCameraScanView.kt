@@ -114,6 +114,12 @@ private fun cropToBoundingBox(
 @Composable
 fun ManualCameraScanView(
     scannedCount: Int,
+    initialZoomRatio: Float = 1f,
+    initialExposureIndex: Int = 0,
+    initialTorchEnabled: Boolean = false,
+    onZoomChange: (Float) -> Unit = {},
+    onExposureChange: (Int) -> Unit = {},
+    onTorchChange: (Boolean) -> Unit = {},
     onBarcodeFound: (String, String?) -> Unit,
     onClose: () -> Unit,
     onAfterPhotoAction: ((Boolean) -> Unit)? = null
@@ -127,9 +133,9 @@ fun ManualCameraScanView(
 
     var isScanning by remember { mutableStateOf(false) }
     var isCapturing by remember { mutableStateOf(false) }
-    var torchEnabled by remember { mutableStateOf(false) }
-    var zoomRatio by remember { mutableFloatStateOf(1f) }
-    var exposureIndex by remember { mutableIntStateOf(0) }
+    var torchEnabled by remember { mutableStateOf(initialTorchEnabled) }
+    var zoomRatio by remember { mutableFloatStateOf(initialZoomRatio) }
+    var exposureIndex by remember { mutableIntStateOf(initialExposureIndex) }
     var camera by remember { mutableStateOf<Camera?>(null) }
 
     var detectedBarcode by remember { mutableStateOf<String?>(null) }
@@ -231,6 +237,8 @@ fun ManualCameraScanView(
                             )
                             camera = boundCamera
                             boundCamera.cameraControl.enableTorch(torchEnabled)
+                            boundCamera.cameraControl.setZoomRatio(zoomRatio)
+                            boundCamera.cameraControl.setExposureCompensationIndex(exposureIndex)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -329,6 +337,7 @@ fun ManualCameraScanView(
                 ) {
                     IconButton(onClick = {
                         torchEnabled = !torchEnabled
+                        onTorchChange(torchEnabled)
                         camera?.cameraControl?.enableTorch(torchEnabled)
                     }) {
                         Icon(
@@ -339,6 +348,7 @@ fun ManualCameraScanView(
                     }
                     IconButton(onClick = {
                         zoomRatio = (zoomRatio - 0.5f).coerceAtLeast(1f)
+                        onZoomChange(zoomRatio)
                         camera?.cameraControl?.setZoomRatio(zoomRatio)
                     }) {
                         Icon(
@@ -350,6 +360,7 @@ fun ManualCameraScanView(
                     IconButton(onClick = {
                         val maxZoom = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 5f
                         zoomRatio = (zoomRatio + 0.5f).coerceAtMost(maxZoom)
+                        onZoomChange(zoomRatio)
                         camera?.cameraControl?.setZoomRatio(zoomRatio)
                     }) {
                         Icon(
@@ -362,7 +373,10 @@ fun ManualCameraScanView(
 
                 Slider(
                     value = exposureIndex.toFloat(),
-                    onValueChange = { exposureIndex = it.toInt() },
+                    onValueChange = {
+                        exposureIndex = it.toInt()
+                        onExposureChange(exposureIndex)
+                    },
                     valueRange = -10f..10f,
                     steps = 20,
                     modifier = Modifier
