@@ -152,6 +152,11 @@ fun FullScreenImagePreview(
                     .onSizeChanged { size ->
                         viewportSizeState.value = Size(size.width.toFloat(), size.height.toFloat())
                     }
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, _, zoom, _ ->
+                            scaleState.floatValue = (scale * zoom).coerceIn(1f, maxScale)
+                        }
+                    }
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale

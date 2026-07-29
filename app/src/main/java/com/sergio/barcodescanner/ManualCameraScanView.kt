@@ -146,6 +146,66 @@ fun ManualCameraScanView(
     var capturedBarcode by remember { mutableStateOf<String?>(null) }
     var isPreviewOpen by remember { mutableStateOf(false) }
 
+    fun captureBarcode() {
+        if (detectedBarcode != null && !isCapturing && !isPreviewOpen) {
+            isCapturing = true
+            try {
+                val picturesDir = File(context.filesDir, "barcode_images")
+                if (!picturesDir.exists()) {
+                    picturesDir.mkdirs()
+                }
+                val photoFile = File(picturesDir, "${System.currentTimeMillis()}.jpg")
+                val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                imageCapture.takePicture(outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                        val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
+                        ContextCompat.getMainExecutor(context).execute {
+                            MediaActionSound().play(MediaActionSound.SHUTTER_CLICK)
+                            val code = detectedBarcode
+                            val rect = detectedRect
+                            val rotation = rotationDegrees
+                            detectedBarcode = null
+                            detectedRect = null
+                            if (code != null) {
+                                val finalPath = if (rect != null) {
+                                    cropToBoundingBox(context, imagePath, rect, rotation) ?: imagePath
+                                } else {
+                                    imagePath
+                                }
+                                capturedBarcode = code
+                                capturedImagePath = finalPath
+                                isPreviewOpen = true
+                            }
+                            isCapturing = false
+                        }
+                    }
+
+                    override fun onError(exception: ImageCaptureException) {
+                        ContextCompat.getMainExecutor(context).execute {
+                            Toast.makeText(context, "Ошибка сохранения: ${exception.message}", Toast.LENGTH_SHORT).show()
+                            detectedBarcode = null
+                            detectedRect = null
+                            isCapturing = false
+                        }
+                    }
+                })
+            } catch (e: Exception) {
+                ContextCompat.getMainExecutor(context).execute {
+                    Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                    detectedBarcode = null
+                    detectedRect = null
+                    isCapturing = false
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(detectedBarcode) {
+        if (detectedBarcode != null) {
+            captureBarcode()
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             cameraProviderFuture.addListener({
@@ -389,56 +449,7 @@ fun ManualCameraScanView(
 
                 FloatingActionButton(
                     onClick = {
-                        if (detectedBarcode != null && !isCapturing) {
-                            isCapturing = true
-                            try {
-                                val picturesDir = File(context.filesDir, "barcode_images")
-                                if (!picturesDir.exists()) {
-                                    picturesDir.mkdirs()
-                                }
-                                val photoFile = File(picturesDir, "${System.currentTimeMillis()}.jpg")
-                                val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-                                imageCapture.takePicture(outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
-                                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                        val imagePath = output.savedUri?.toString() ?: photoFile.absolutePath
-                                        ContextCompat.getMainExecutor(context).execute {
-                                            MediaActionSound().play(MediaActionSound.SHUTTER_CLICK)
-                                            val code = detectedBarcode
-                                            val rect = detectedRect
-                                            val rotation = rotationDegrees
-                                            detectedBarcode = null
-                                            detectedRect = null
-                                            if (code != null) {
-                                                val finalPath = if (rect != null) {
-                                                    cropToBoundingBox(context, imagePath, rect, rotation) ?: imagePath
-                                                } else {
-                                                    imagePath
-                                                }
-                                                capturedBarcode = code
-                                                capturedImagePath = finalPath
-                                                isPreviewOpen = true
-                                            }
-                                            isCapturing = false
-                                        }
-                                    }
-                                    override fun onError(exception: ImageCaptureException) {
-                                        ContextCompat.getMainExecutor(context).execute {
-                                            Toast.makeText(context, "Ошибка сохранения: ${exception.message}", Toast.LENGTH_SHORT).show()
-                                            detectedBarcode = null
-                                            detectedRect = null
-                                            isCapturing = false
-                                        }
-                                    }
-                                })
-                            } catch (e: Exception) {
-                                ContextCompat.getMainExecutor(context).execute {
-                                    Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
-                                    detectedBarcode = null
-                                    detectedRect = null
-                                    isCapturing = false
-                                }
-                            }
-                        }
+                        captureBarcode()
                     },
                     modifier = Modifier
                         .size(72.dp)
