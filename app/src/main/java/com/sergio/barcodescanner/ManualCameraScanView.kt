@@ -446,23 +446,6 @@ fun ManualCameraScanView(
                 LaunchedEffect(exposureIndex) {
                     camera?.cameraControl?.setExposureCompensationIndex(exposureIndex)
                 }
-
-                FloatingActionButton(
-                    onClick = {
-                        captureBarcode()
-                    },
-                    modifier = Modifier
-                        .size(72.dp)
-                        .padding(bottom = 16.dp),
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Camera,
-                        contentDescription = "Сохранить штрихкод",
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
             }
         }
 
