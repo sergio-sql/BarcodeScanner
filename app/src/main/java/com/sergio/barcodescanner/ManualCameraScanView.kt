@@ -17,6 +17,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,10 +28,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.FlashOff
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.ZoomIn
-import androidx.compose.material.icons.filled.ZoomOut
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -53,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -219,6 +219,16 @@ fun ManualCameraScanView(
     Box(modifier = Modifier.fillMaxSize()) {
         if (!isPreviewOpen) {
             AndroidView(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, _, zoom, _ ->
+                            val maxZoom = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 5f
+                            zoomRatio = (zoomRatio * zoom).coerceIn(1f, maxZoom)
+                            onZoomChange(zoomRatio)
+                            camera?.cameraControl?.setZoomRatio(zoomRatio)
+                        }
+                    },
                 factory = { ctx ->
                     val previewView = PreviewView(ctx).apply {
                         scaleType = PreviewView.ScaleType.FILL_CENTER
@@ -303,7 +313,6 @@ fun ManualCameraScanView(
 
                     previewView
                 },
-                modifier = Modifier.fillMaxSize()
             )
 
             detectedRect?.let { rect ->
@@ -398,32 +407,9 @@ fun ManualCameraScanView(
                         camera?.cameraControl?.enableTorch(torchEnabled)
                     }) {
                         Icon(
-                            imageVector = if (torchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                            imageVector = if (torchEnabled) Icons.Filled.Lightbulb else Icons.Outlined.Lightbulb,
                             contentDescription = if (torchEnabled) "Выключить фонарик" else "Включить фонарик",
                             tint = if (torchEnabled) Color.Yellow else Color.White
-                        )
-                    }
-                    IconButton(onClick = {
-                        zoomRatio = (zoomRatio - 0.5f).coerceAtLeast(1f)
-                        onZoomChange(zoomRatio)
-                        camera?.cameraControl?.setZoomRatio(zoomRatio)
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.ZoomOut,
-                            contentDescription = "Уменьшить зум",
-                            tint = Color.White
-                        )
-                    }
-                    IconButton(onClick = {
-                        val maxZoom = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 5f
-                        zoomRatio = (zoomRatio + 0.5f).coerceAtMost(maxZoom)
-                        onZoomChange(zoomRatio)
-                        camera?.cameraControl?.setZoomRatio(zoomRatio)
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.ZoomIn,
-                            contentDescription = "Увеличить зум",
-                            tint = Color.White
                         )
                     }
                 }
