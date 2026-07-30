@@ -311,8 +311,8 @@ fun BarcodeScannerScreen() {
     }
 
     val activity = context as ComponentActivity
-    LaunchedEffect(isCameraOpen) {
-        activity.requestedOrientation = if (isCameraOpen) {
+    LaunchedEffect(isCameraOpen, currentImagePath) {
+        activity.requestedOrientation = if (isCameraOpen || currentImagePath != null) {
             ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         } else {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT

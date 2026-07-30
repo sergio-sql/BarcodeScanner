@@ -109,7 +109,6 @@ fun FullScreenImagePreview(
         if (bitmap != null && viewportSize.width > 0 && viewportSize.height > 0) {
             val fitScale = minOf(viewportSize.width / bitmap.width, viewportSize.height / bitmap.height)
             maxScaleState.floatValue = (1f / fitScale).coerceAtLeast(1f)
-            scaleState.floatValue = 1f
         }
     }
 
@@ -237,17 +236,21 @@ fun FullScreenImagePreview(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (listMode) {
-                    Text(
-                        text = "${activeIndexState.value + 1} / ${barcodeList.size}",
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "${activeIndexState.value + 1} / ${barcodeList.size}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = activeItem?.code ?: (barcode ?: ""),
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                     Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = activeItem?.code ?: (barcode ?: ""),
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
                 } else {
                     Text(
                         text = barcode ?: "",

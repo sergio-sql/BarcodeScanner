@@ -183,14 +183,23 @@ fun ManualCameraScanView(
                             detectedBarcode = null
                             detectedRect = null
                             if (code != null) {
-                                val finalPath = if (rect != null) {
-                                    cropToBoundingBox(context, imagePath, rect, rotation) ?: imagePath
-                                } else {
+                                val finalPath = try {
+                                    if (rect != null) {
+                                        cropToBoundingBox(context, imagePath, rect, rotation) ?: imagePath
+                                    } else {
+                                        imagePath
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Ошибка обработки фото: ${e.message}", Toast.LENGTH_SHORT).show()
                                     imagePath
                                 }
                                 capturedBarcode = code
                                 capturedImagePath = finalPath
-                                isPreviewOpen = true
+                                if (finalPath != null && File(finalPath).exists()) {
+                                    isPreviewOpen = true
+                                } else {
+                                    Toast.makeText(context, "Фото не сохранено", Toast.LENGTH_SHORT).show()
+                                }
                             }
                             isCapturing = false
                         }
