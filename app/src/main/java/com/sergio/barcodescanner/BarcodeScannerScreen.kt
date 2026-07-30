@@ -112,75 +112,12 @@ private fun copyBarcodeText(context: Context, text: String) {
     Toast.makeText(context, "Текст скопирован", Toast.LENGTH_SHORT).show()
 }
 
-private fun copyBarcodeImage(context: Context, imagePath: String?) {
-    if (imagePath == null) {
-        Toast.makeText(context, "Нет изображения", Toast.LENGTH_SHORT).show()
-        return
-    }
-    try {
-        val file = if (imagePath.startsWith("content://") || imagePath.startsWith("file://")) {
-            File(context.cacheDir, "shared_image_${System.currentTimeMillis()}.jpg").also { shared ->
-                context.contentResolver.openInputStream(imagePath.toUri())?.use { input ->
-                    shared.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-            }
-        } else {
-            File(imagePath)
-        }
-        if (!file.exists()) {
-            Toast.makeText(context, "Файл не найден", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newUri(context.contentResolver, "barcode_image", uri))
-        Toast.makeText(context, "Изображение скопировано", Toast.LENGTH_SHORT).show()
-    } catch (e: Exception) {
-        Toast.makeText(context, "Ошибка копирования: ${e.message}", Toast.LENGTH_SHORT).show()
-    }
-}
-
 private fun shareBarcodeText(context: Context, text: String) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, text)
     }
     context.startActivity(Intent.createChooser(intent, "Поделиться штрихкодом"))
-}
-
-private fun shareBarcodeImage(context: Context, imagePath: String?) {
-    if (imagePath == null) {
-        Toast.makeText(context, "Нет изображения", Toast.LENGTH_SHORT).show()
-        return
-    }
-    try {
-        val file = if (imagePath.startsWith("content://") || imagePath.startsWith("file://")) {
-            File(context.cacheDir, "shared_image_${System.currentTimeMillis()}.jpg").also { shared ->
-                context.contentResolver.openInputStream(imagePath.toUri())?.use { input ->
-                    shared.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-            }
-        } else {
-            File(imagePath)
-        }
-        if (!file.exists()) {
-            Toast.makeText(context, "Файл не найден", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "image/*"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        context.startActivity(Intent.createChooser(intent, "Поделиться изображением"))
-    } catch (e: Exception) {
-        Toast.makeText(context, "Ошибка отправки: ${e.message}", Toast.LENGTH_SHORT).show()
-    }
 }
 
 private fun shareSelectedImages(context: Context, items: List<BarcodeItem>) {
@@ -230,7 +167,7 @@ fun BarcodeScannerScreen() {
 
     val barcodeList = remember { mutableStateListOf<BarcodeItem>() }
     val selectAllState = remember {
-        derivedStateOf<SelectAllState> {
+        derivedStateOf {
             when {
                 barcodeList.isEmpty() -> SelectAllState.Unchecked
                 barcodeList.all { it.isSelected } -> SelectAllState.Checked
@@ -239,7 +176,7 @@ fun BarcodeScannerScreen() {
             }
         }
     }
-    val hasSelection = remember { derivedStateOf<Boolean> { barcodeList.any { it.isSelected } } }
+    val hasSelection = remember { derivedStateOf { barcodeList.any { it.isSelected } } }
     var currentImagePath by remember { mutableStateOf<String?>(null) }
     var viewerBarcode by remember { mutableStateOf<String?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
