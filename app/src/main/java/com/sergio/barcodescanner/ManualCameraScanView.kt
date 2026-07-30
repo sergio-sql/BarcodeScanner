@@ -138,6 +138,7 @@ fun ManualCameraScanView(
     var detectedBarcode by remember { mutableStateOf<String?>(null) }
     var detectedRect by remember { mutableStateOf<Rect?>(null) }
     var scanArea by remember { mutableStateOf<Rect?>(null) }
+    var crosshairArea by remember { mutableStateOf<Rect?>(null) }
     var imageSize by remember { mutableStateOf<android.util.Size?>(null) }
     var rotationDegrees by remember { mutableIntStateOf(0) }
 
@@ -150,6 +151,11 @@ fun ManualCameraScanView(
         val left = (iw - areaW) / 2
         val top = (ih - areaH) / 2
         scanArea = Rect(left, top, left + areaW, top + areaH)
+        val crossW = (areaW * 0.3).toInt()
+        val crossH = (areaH * 0.3).toInt()
+        val crossLeft = left + (areaW - crossW) / 2
+        val crossTop = top + (areaH - crossH) / 2
+        crosshairArea = Rect(crossLeft, crossTop, crossLeft + crossW, crossTop + crossH)
     }
 
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
@@ -277,7 +283,7 @@ fun ManualCameraScanView(
                                             if (firstBarcode != null) {
                                                 val code = firstBarcode.rawValue ?: return@addOnSuccessListener
                                                 val box = firstBarcode.boundingBox
-                                                val area = scanArea
+                                                val area = crosshairArea
                                                 if (box != null && area != null) {
                                                     if (!Rect.intersects(box, area)) {
                                                         return@addOnSuccessListener
@@ -335,7 +341,7 @@ fun ManualCameraScanView(
                 },
             )
 
-            scanArea?.let { area ->
+            crosshairArea?.let { area ->
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val imageW = imageSize?.width?.toFloat() ?: 1f
                     val imageH = imageSize?.height?.toFloat() ?: 1f
