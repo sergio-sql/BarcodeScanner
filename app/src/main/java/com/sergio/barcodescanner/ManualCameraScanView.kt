@@ -146,13 +146,13 @@ fun ManualCameraScanView(
         val w = imageSize?.width ?: return@LaunchedEffect
         val h = imageSize?.height ?: return@LaunchedEffect
         val (iw, ih) = if (rotationDegrees == 90 || rotationDegrees == 270) h to w else w to h
-        val areaW = (iw * 0.5).toInt()
-        val areaH = (ih * 0.4).toInt()
+        val areaW = (iw * 0.75).toInt()
+        val areaH = (ih * 0.65).toInt()
         val left = (iw - areaW) / 2
         val top = (ih - areaH) / 2
         scanArea = Rect(left, top, left + areaW, top + areaH)
-        val crossW = (areaW * 0.3).toInt()
-        val crossH = (areaH * 0.3).toInt()
+        val crossW = (areaW * 0.4).toInt()
+        val crossH = (areaH * 0.4).toInt()
         val crossLeft = left + (areaW - crossW) / 2
         val crossTop = top + (areaH - crossH) / 2
         crosshairArea = Rect(crossLeft, crossTop, crossLeft + crossW, crossTop + crossH)
