@@ -285,7 +285,9 @@ fun ManualCameraScanView(
                                                 val box = firstBarcode.boundingBox
                                                 val area = crosshairArea
                                                 if (box != null && area != null) {
-                                                    if (!Rect.intersects(box, area)) {
+                                                    val boxCenterX = (box.left + box.right) / 2
+                                                    val boxCenterY = (box.top + box.bottom) / 2
+                                                    if (!area.contains(boxCenterX, boxCenterY)) {
                                                         return@addOnSuccessListener
                                                     }
                                                 }
