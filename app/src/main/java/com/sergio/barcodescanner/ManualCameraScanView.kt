@@ -137,8 +137,21 @@ fun ManualCameraScanView(
 
     var detectedBarcode by remember { mutableStateOf<String?>(null) }
     var detectedRect by remember { mutableStateOf<Rect?>(null) }
+    var scanArea by remember { mutableStateOf<Rect?>(null) }
     var imageSize by remember { mutableStateOf<android.util.Size?>(null) }
     var rotationDegrees by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(imageSize, rotationDegrees) {
+        val w = imageSize?.width ?: return@LaunchedEffect
+        val h = imageSize?.height ?: return@LaunchedEffect
+        val (iw, ih) = if (rotationDegrees == 90 || rotationDegrees == 270) h to w else w to h
+        val areaW = (iw * 0.5).toInt()
+        val areaH = (ih * 0.4).toInt()
+        val left = (iw - areaW) / 2
+        val top = (ih - areaH) / 2
+        scanArea = Rect(left, top, left + areaW, top + areaH)
+    }
+
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
     var capturedBarcode by remember { mutableStateOf<String?>(null) }
     var isPreviewOpen by remember { mutableStateOf(false) }
@@ -263,9 +276,16 @@ fun ManualCameraScanView(
                                             val firstBarcode = barcodes.firstOrNull()
                                             if (firstBarcode != null) {
                                                 val code = firstBarcode.rawValue ?: return@addOnSuccessListener
+                                                val box = firstBarcode.boundingBox
+                                                val area = scanArea
+                                                if (box != null && area != null) {
+                                                    if (!Rect.intersects(box, area)) {
+                                                        return@addOnSuccessListener
+                                                    }
+                                                }
                                                 ContextCompat.getMainExecutor(context).execute {
                                                     detectedBarcode = code
-                                                    detectedRect = firstBarcode.boundingBox
+                                                    detectedRect = box
                                                 }
                                             } else {
                                                 ContextCompat.getMainExecutor(context).execute {
@@ -314,6 +334,65 @@ fun ManualCameraScanView(
                     previewView
                 },
             )
+
+            scanArea?.let { area ->
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val imageW = imageSize?.width?.toFloat() ?: 1f
+                    val imageH = imageSize?.height?.toFloat() ?: 1f
+                    val viewW = size.width
+                    val viewH = size.height
+
+                    val rotation = rotationDegrees
+                    val srcW: Float
+                    val srcH: Float
+                    if (rotation == 90 || rotation == 270) {
+                        srcW = imageH
+                        srcH = imageW
+                    } else {
+                        srcW = imageW
+                        srcH = imageH
+                    }
+
+                    val scale = kotlin.math.max(viewW / srcW, viewH / srcH)
+                    val offsetX = (viewW - srcW * scale) / 2f
+                    val offsetY = (viewH - srcH * scale) / 2f
+
+                    val normalizedLeft = minOf(area.left, area.right)
+                    val normalizedTop = minOf(area.top, area.bottom)
+                    val normalizedRight = maxOf(area.left, area.right)
+                    val normalizedBottom = maxOf(area.top, area.bottom)
+
+                    val left = normalizedLeft * scale + offsetX
+                    val top = normalizedTop * scale + offsetY
+                    val right = normalizedRight * scale + offsetX
+                    val bottom = normalizedBottom * scale + offsetY
+
+                    drawRoundRect(
+                        color = Color.White,
+                        topLeft = Offset(left, top),
+                        size = androidx.compose.ui.geometry.Size(kotlin.math.max(0f, right - left), kotlin.math.max(0f, bottom - top)),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(24f, 24f),
+                        style = Stroke(width = 4f)
+                    )
+
+                    val centerX = (left + right) / 2f
+                    val centerY = (top + bottom) / 2f
+                    val lineLength = 40f
+
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(centerX - lineLength, centerY),
+                        end = Offset(centerX + lineLength, centerY),
+                        strokeWidth = 4f
+                    )
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(centerX, centerY - lineLength),
+                        end = Offset(centerX, centerY + lineLength),
+                        strokeWidth = 4f
+                    )
+                }
+            }
 
             detectedRect?.let { rect ->
                 Canvas(modifier = Modifier.fillMaxSize()) {
