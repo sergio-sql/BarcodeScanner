@@ -9,7 +9,7 @@ import android.os.Vibrator
 import android.os.VibrationEffect
 import android.widget.Toast
 import androidx.annotation.OptIn
-import androidx.camera.core.AspectRatio
+
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -47,7 +47,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -150,8 +149,6 @@ fun ManualCameraScanView(
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
     var capturedBarcode by remember { mutableStateOf<String?>(null) }
     var isPreviewOpen by remember { mutableStateOf(false) }
-    var lastScanTime by remember { mutableLongStateOf(0L) }
-    val SCAN_COOLDOWN_MS = 800L
 
     LaunchedEffect(imageSize, rotationDegrees) {
         val w = imageSize?.width ?: return@LaunchedEffect
@@ -284,19 +281,15 @@ fun ManualCameraScanView(
                             it.surfaceProvider = previewView.surfaceProvider
                         }
 
-                        @Suppress("DEPRECATION")
                         val imageAnalysis = ImageAnalysis.Builder()
-                            .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                             .build()
 
                         imageAnalysis.setAnalyzer(executor) { imageProxy ->
                             imageSize = android.util.Size(imageProxy.width, imageProxy.height)
                             rotationDegrees = imageProxy.imageInfo.rotationDegrees
-                            val now = System.currentTimeMillis()
-                            if (!isScanning && !isPreviewOpen && now - lastScanTime > SCAN_COOLDOWN_MS) {
+                            if (!isScanning && !isPreviewOpen) {
                                 isScanning = true
-                                lastScanTime = now
                                 val mediaImage = imageProxy.image
 
                                 if (mediaImage != null) {
