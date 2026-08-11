@@ -154,8 +154,8 @@ fun ManualCameraScanView(
         val w = imageSize?.width ?: return@LaunchedEffect
         val h = imageSize?.height ?: return@LaunchedEffect
         val (iw, ih) = if (rotationDegrees == 90 || rotationDegrees == 270) h to w else w to h
-        val areaW = (iw * 0.75).toInt()
-        val areaH = (ih * 0.65).toInt()
+        val areaW = (iw * 0.65).toInt()
+        val areaH = (ih * 0.45).toInt()
         val left = (iw - areaW) / 2
         val top = (ih - areaH) / 2
         scanArea = Rect(left, top, left + areaW, top + areaH)
