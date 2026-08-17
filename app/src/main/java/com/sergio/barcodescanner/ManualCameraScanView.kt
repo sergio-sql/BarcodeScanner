@@ -5,11 +5,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.media.MediaActionSound
-import android.os.Vibrator
-import android.os.VibrationEffect
 import android.widget.Toast
 import androidx.annotation.OptIn
-
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -146,25 +143,26 @@ fun ManualCameraScanView(
     var crosshairArea by remember { mutableStateOf<Rect?>(null) }
     var imageSize by remember { mutableStateOf<android.util.Size?>(null) }
     var rotationDegrees by remember { mutableIntStateOf(0) }
-    var capturedImagePath by remember { mutableStateOf<String?>(null) }
-    var capturedBarcode by remember { mutableStateOf<String?>(null) }
-    var isPreviewOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(imageSize, rotationDegrees) {
         val w = imageSize?.width ?: return@LaunchedEffect
         val h = imageSize?.height ?: return@LaunchedEffect
         val (iw, ih) = if (rotationDegrees == 90 || rotationDegrees == 270) h to w else w to h
-        val areaW = (iw * 0.65).toInt()
-        val areaH = (ih * 0.45).toInt()
+        val areaW = (iw * 0.5).toInt()
+        val areaH = (ih * 0.4).toInt()
         val left = (iw - areaW) / 2
         val top = (ih - areaH) / 2
         scanArea = Rect(left, top, left + areaW, top + areaH)
-        val crossW = (areaW * 0.4).toInt()
-        val crossH = (areaH * 0.4).toInt()
+        val crossW = (areaW * 0.3).toInt()
+        val crossH = (areaH * 0.3).toInt()
         val crossLeft = left + (areaW - crossW) / 2
         val crossTop = top + (areaH - crossH) / 2
         crosshairArea = Rect(crossLeft, crossTop, crossLeft + crossW, crossTop + crossH)
     }
+
+    var capturedImagePath by remember { mutableStateOf<String?>(null) }
+    var capturedBarcode by remember { mutableStateOf<String?>(null) }
+    var isPreviewOpen by remember { mutableStateOf(false) }
 
     fun captureBarcode() {
         if (detectedBarcode != null && !isCapturing && !isPreviewOpen) {
@@ -183,31 +181,20 @@ fun ManualCameraScanView(
                             MediaActionSound().play(MediaActionSound.SHUTTER_CLICK)
                             val code = detectedBarcode
                             val rect = detectedRect
-                            val rotation = rotationDegrees
+                            val rotation = detectedRotation
                             detectedBarcode = null
                             detectedRect = null
                             detectedImageSize = null
                             detectedRotation = 0
                             if (code != null) {
-                                val finalPath = try {
-                                    if (rect != null) {
-                                        cropToBoundingBox(context, imagePath, rect, rotation) ?: imagePath
-                                    } else {
-                                        imagePath
-                                    }
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Ошибка обработки фото: ${e.message}", Toast.LENGTH_SHORT).show()
+                                val finalPath = if (rect != null) {
+                                    cropToBoundingBox(context, imagePath, rect, rotation) ?: imagePath
+                                } else {
                                     imagePath
                                 }
                                 capturedBarcode = code
                                 capturedImagePath = finalPath
-                                if (finalPath != null && File(finalPath).exists()) {
-                                    isPreviewOpen = true
-                                    @Suppress("DEPRECATION")
-                                    (context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator)?.vibrate(50)
-                                } else {
-                                    Toast.makeText(context, "Фото не сохранено", Toast.LENGTH_SHORT).show()
-                                }
+                                isPreviewOpen = true
                             }
                             isCapturing = false
                         }
@@ -229,8 +216,6 @@ fun ManualCameraScanView(
                     Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
                     detectedBarcode = null
                     detectedRect = null
-                    detectedImageSize = null
-                    detectedRotation = 0
                     isCapturing = false
                 }
             }
@@ -306,13 +291,8 @@ fun ManualCameraScanView(
                                                 val box = firstBarcode.boundingBox
                                                 val area = crosshairArea
                                                 if (box != null && area != null) {
-                                                    val boxCenterX = (box.left + box.right) / 2
-                                                    val boxCenterY = (box.top + box.bottom) / 2
-                                                    if (!area.contains(boxCenterX, boxCenterY)) {
-                                                        val scan = scanArea
-                                                        if (scan != null && !scan.contains(boxCenterX, boxCenterY)) {
-                                                            return@addOnSuccessListener
-                                                        }
+                                                    if (!Rect.intersects(box, area)) {
+                                                        return@addOnSuccessListener
                                                     }
                                                 }
                                                 ContextCompat.getMainExecutor(context).execute {
@@ -371,19 +351,40 @@ fun ManualCameraScanView(
 
             crosshairArea?.let { area ->
                 Canvas(modifier = Modifier.fillMaxSize()) {
+                    val imageW = imageSize?.width?.toFloat() ?: 1f
+                    val imageH = imageSize?.height?.toFloat() ?: 1f
                     val viewW = size.width
                     val viewH = size.height
-                    val areaW = viewW * 0.75f
-                    val areaH = viewH * 0.65f
-                    val left = (viewW - areaW) / 2
-                    val top = (viewH - areaH) / 2
-                    val right = left + areaW
-                    val bottom = top + areaH
+
+                    val rotation = rotationDegrees
+                    val srcW: Float
+                    val srcH: Float
+                    if (rotation == 90 || rotation == 270) {
+                        srcW = imageH
+                        srcH = imageW
+                    } else {
+                        srcW = imageW
+                        srcH = imageH
+                    }
+
+                    val scale = kotlin.math.max(viewW / srcW, viewH / srcH)
+                    val offsetX = (viewW - srcW * scale) / 2f
+                    val offsetY = (viewH - srcH * scale) / 2f
+
+                    val normalizedLeft = minOf(area.left, area.right)
+                    val normalizedTop = minOf(area.top, area.bottom)
+                    val normalizedRight = maxOf(area.left, area.right)
+                    val normalizedBottom = maxOf(area.top, area.bottom)
+
+                    val left = normalizedLeft * scale + offsetX
+                    val top = normalizedTop * scale + offsetY
+                    val right = normalizedRight * scale + offsetX
+                    val bottom = normalizedBottom * scale + offsetY
 
                     drawRoundRect(
                         color = Color.White,
                         topLeft = Offset(left, top),
-                        size = androidx.compose.ui.geometry.Size(areaW, areaH),
+                        size = androidx.compose.ui.geometry.Size(kotlin.math.max(0f, right - left), kotlin.math.max(0f, bottom - top)),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(24f, 24f),
                         style = Stroke(width = 4f)
                     )
@@ -409,20 +410,20 @@ fun ManualCameraScanView(
 
             detectedRect?.let { rect ->
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    val imgW = detectedImageSize?.width?.toFloat() ?: 1f
-                    val imgH = detectedImageSize?.height?.toFloat() ?: 1f
+                    val imageW = detectedImageSize?.width?.toFloat() ?: 1f
+                    val imageH = detectedImageSize?.height?.toFloat() ?: 1f
                     val viewW = size.width
                     val viewH = size.height
-                    val rotation = detectedRotation
 
+                    val rotation = detectedRotation
                     val srcW: Float
                     val srcH: Float
                     if (rotation == 90 || rotation == 270) {
-                        srcW = imgH
-                        srcH = imgW
+                        srcW = imageH
+                        srcH = imageW
                     } else {
-                        srcW = imgW
-                        srcH = imgH
+                        srcW = imageW
+                        srcH = imageH
                     }
 
                     val scale = kotlin.math.max(viewW / srcW, viewH / srcH)

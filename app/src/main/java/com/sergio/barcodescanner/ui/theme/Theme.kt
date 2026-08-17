@@ -26,6 +26,8 @@ private var currentThemeMode by mutableStateOf(ThemeMode.AUTO)
 object ThemePreference {
     private const val PREFS_NAME = "barcode_prefs"
     private const val KEY_THEME_MODE = "theme_mode"
+    private const val KEY_COMPARE_BY_SUFFIX = "compare_by_suffix"
+    private const val KEY_COMPARE_SUFFIX_LENGTH = "compare_suffix_length"
 
     fun getThemeMode(context: android.content.Context): ThemeMode {
         val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
@@ -37,6 +39,26 @@ object ThemePreference {
     fun setThemeMode(context: android.content.Context, mode: ThemeMode) {
         val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
         prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
+    }
+
+    fun isCompareBySuffix(context: android.content.Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_COMPARE_BY_SUFFIX, false)
+    }
+
+    fun setCompareBySuffix(context: android.content.Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_COMPARE_BY_SUFFIX, enabled).apply()
+    }
+
+    fun getCompareSuffixLength(context: android.content.Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_COMPARE_SUFFIX_LENGTH, 3)
+    }
+
+    fun setCompareSuffixLength(context: android.content.Context, length: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_COMPARE_SUFFIX_LENGTH, length).apply()
     }
 }
 
