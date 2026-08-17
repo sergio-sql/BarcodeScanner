@@ -59,6 +59,8 @@ fun FullScreenImagePreview(
     val bitmapState = remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     val currentImagePathState = remember { mutableStateOf<String?>(null) }
     val scaleState = remember { mutableFloatStateOf(1f) }
+    val offsetXState = remember { mutableFloatStateOf(0f) }
+    val offsetYState = remember { mutableFloatStateOf(0f) }
     val maxScaleState = remember { mutableFloatStateOf(1f) }
     val viewportSizeState = remember { mutableStateOf<Size>(Size.Zero) }
     val loadError = remember { mutableStateOf<String?>(null) }
@@ -70,6 +72,8 @@ fun FullScreenImagePreview(
         if (currentImagePathState.value != activePath) {
             currentImagePathState.value = activePath
             scaleState.floatValue = 1f
+            offsetXState.floatValue = 0f
+            offsetYState.floatValue = 0f
         }
         loadError.value = null
         if (activePath != null) {
@@ -157,13 +161,17 @@ fun FullScreenImagePreview(
                         viewportSizeState.value = Size(size.width.toFloat(), size.height.toFloat())
                     }
                     .pointerInput(Unit) {
-                        detectTransformGestures { _, _, zoom, _ ->
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            offsetXState.floatValue += pan.x
+                            offsetYState.floatValue += pan.y
                             scaleState.floatValue = (scaleState.floatValue * zoom).coerceIn(1f, maxScale)
                         }
                     }
                     .graphicsLayer {
                         scaleX = scaleState.floatValue
                         scaleY = scaleState.floatValue
+                        translationX = offsetXState.floatValue
+                        translationY = offsetYState.floatValue
                     },
                 contentScale = ContentScale.Fit
             )
