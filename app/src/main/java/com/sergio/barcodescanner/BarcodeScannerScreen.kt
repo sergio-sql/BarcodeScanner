@@ -112,6 +112,27 @@ private fun copyBarcodeText(context: Context, text: String) {
     Toast.makeText(context, "Текст скопирован", Toast.LENGTH_SHORT).show()
 }
 
+private fun importFromClipboard(context: Context, barcodeList: MutableList<BarcodeItem>) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = clipboard.primaryClip
+    if (clip != null && clip.itemCount > 0) {
+        val text = clip.getItemAt(0).coerceToText(context).toString()
+        val lines = text.lines()
+            .map { it.trim().replace(",", "") }
+            .filter { it.isNotBlank() }
+        if (lines.isNotEmpty()) {
+            val newItems = lines.map { BarcodeItem(code = it) }
+            barcodeList.addAll(newItems)
+            saveBarcodeList(context, barcodeList)
+            Toast.makeText(context, "Импортировано: ${newItems.size}", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Нет данных для импорта", Toast.LENGTH_SHORT).show()
+        }
+    } else {
+        Toast.makeText(context, "Буфер обмена пуст", Toast.LENGTH_SHORT).show()
+    }
+}
+
 private fun shareBarcodeText(context: Context, text: String) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
@@ -358,6 +379,13 @@ fun BarcodeScannerScreen() {
                                     expanded = expandedActions,
                                     onDismissRequest = { expandedActions = false }
                                 ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Импорт списка") },
+                                        onClick = {
+                                            expandedActions = false
+                                            importFromClipboard(context, barcodeList)
+                                        }
+                                    )
                                     DropdownMenuItem(
                                         text = { Text("Настройки") },
                                         onClick = {
