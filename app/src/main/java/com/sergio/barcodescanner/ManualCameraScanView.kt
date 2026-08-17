@@ -430,10 +430,10 @@ fun ManualCameraScanView(
                     val offsetX = (viewW - srcW * scale) / 2f
                     val offsetY = (viewH - srcH * scale) / 2f
 
-                    val normalizedLeft = minOf(rect.left, rect.right)
-                    val normalizedTop = minOf(rect.top, rect.bottom)
-                    val normalizedRight = maxOf(rect.left, rect.right)
-                    val normalizedBottom = maxOf(rect.top, rect.bottom)
+                    val normalizedLeft = minOf(rect.left, rect.right).toFloat()
+                    val normalizedTop = minOf(rect.top, rect.bottom).toFloat()
+                    val normalizedRight = maxOf(rect.left, rect.right).toFloat()
+                    val normalizedBottom = maxOf(rect.top, rect.bottom).toFloat()
 
                     val left = normalizedLeft * scale + offsetX
                     val top = normalizedTop * scale + offsetY

@@ -29,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +57,7 @@ fun FullScreenImagePreview(
 ) {
     val context = LocalContext.current
     val bitmapState = remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    val currentImagePathState = remember { mutableStateOf<String?>(null) }
     val scaleState = remember { mutableFloatStateOf(1f) }
     val maxScaleState = remember { mutableFloatStateOf(1f) }
     val viewportSizeState = remember { mutableStateOf<Size>(Size.Zero) }
@@ -65,6 +67,10 @@ fun FullScreenImagePreview(
     val activePath = activeItem?.imagePath ?: imagePath
 
     LaunchedEffect(activePath) {
+        if (currentImagePathState.value != activePath) {
+            currentImagePathState.value = activePath
+            scaleState.floatValue = 1f
+        }
         loadError.value = null
         if (activePath != null) {
             try {
@@ -97,11 +103,9 @@ fun FullScreenImagePreview(
             bitmapState.value = null
             loadError.value = "Путь к изображению отсутствует"
         }
-        scaleState.floatValue = 1f
     }
 
     val bitmap = bitmapState.value
-    val scale = scaleState.floatValue
     val maxScale = maxScaleState.floatValue
     val viewportSize = viewportSizeState.value
 
@@ -109,6 +113,7 @@ fun FullScreenImagePreview(
         if (bitmap != null && viewportSize.width > 0 && viewportSize.height > 0) {
             val fitScale = minOf(viewportSize.width / bitmap.width, viewportSize.height / bitmap.height)
             maxScaleState.floatValue = (1f / fitScale).coerceAtLeast(1f)
+            scaleState.floatValue = 1f
         }
     }
 
@@ -153,12 +158,12 @@ fun FullScreenImagePreview(
                     }
                     .pointerInput(Unit) {
                         detectTransformGestures { _, _, zoom, _ ->
-                            scaleState.floatValue = (scale * zoom).coerceIn(1f, maxScale)
+                            scaleState.floatValue = (scaleState.floatValue * zoom).coerceIn(1f, maxScale)
                         }
                     }
                     .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
+                        scaleX = scaleState.floatValue
+                        scaleY = scaleState.floatValue
                     },
                 contentScale = ContentScale.Fit
             )
