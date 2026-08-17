@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <files-path name="barcode_images" path="barcode_images/" />
+    <cache-path name="shared_images" path="shared_images/" />
 </paths>

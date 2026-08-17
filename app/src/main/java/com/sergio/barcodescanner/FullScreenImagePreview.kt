@@ -165,6 +165,13 @@ fun FullScreenImagePreview(
                             offsetXState.floatValue += pan.x
                             offsetYState.floatValue += pan.y
                             scaleState.floatValue = (scaleState.floatValue * zoom).coerceIn(1f, maxScale)
+
+                            val fitScale = 1f / maxScale
+                            val totalScale = fitScale * scaleState.floatValue
+                            val maxOffsetX = kotlin.math.max(0f, (bitmap.width * totalScale - viewportSize.width) / 2f)
+                            val maxOffsetY = kotlin.math.max(0f, (bitmap.height * totalScale - viewportSize.height) / 2f)
+                            offsetXState.floatValue = offsetXState.floatValue.coerceIn(-maxOffsetX, maxOffsetX)
+                            offsetYState.floatValue = offsetYState.floatValue.coerceIn(-maxOffsetY, maxOffsetY)
                         }
                     }
                     .graphicsLayer {
