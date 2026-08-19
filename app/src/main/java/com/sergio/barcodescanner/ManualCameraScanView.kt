@@ -119,7 +119,8 @@ fun ManualCameraScanView(
     onTorchChange: (Boolean) -> Unit = {},
     onBarcodeFound: (String, String?) -> Unit,
     onClose: () -> Unit,
-    onAfterPhotoAction: ((Boolean) -> Unit)? = null
+    onAfterPhotoAction: ((Boolean) -> Unit)? = null,
+    onBarcodeDetected: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -297,6 +298,7 @@ fun ManualCameraScanView(
                                                 }
                                                 ContextCompat.getMainExecutor(context).execute {
                                                     detectedBarcode = code
+                                                    onBarcodeDetected?.invoke(code)
                                                     detectedRect = box
                                                     detectedImageSize = imageSize
                                                     detectedRotation = rotationDegrees

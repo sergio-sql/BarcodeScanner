@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,6 +28,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
@@ -205,6 +209,9 @@ fun BarcodeScannerScreen() {
 
     var expandedActions by remember { mutableStateOf(false) }
     var expandedShare by remember { mutableStateOf(false) }
+    var isCompareMode by rememberSaveable { mutableStateOf(false) }
+    var lastNotifiedBarcode by remember { mutableStateOf<String?>(null) }
+    var lastNotificationTime by remember { mutableStateOf(0L) }
 
     var isCameraOpen by remember { mutableStateOf(false) }
 
@@ -364,8 +371,8 @@ fun BarcodeScannerScreen() {
                             }
                             IconButton(onClick = onAddClick) {
                                 Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Добавить штрихкод"
+                                    imageVector = if (isCompareMode) Icons.Default.Search else Icons.Default.Add,
+                                    contentDescription = if (isCompareMode) "Сканировать (режим сравнения)" else "Добавить штрихкод"
                                 )
                             }
                             Box {
@@ -379,6 +386,22 @@ fun BarcodeScannerScreen() {
                                     expanded = expandedActions,
                                     onDismissRequest = { expandedActions = false }
                                 ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Режим сравнения") },
+                                        onClick = {
+                                            expandedActions = false
+                                            isCompareMode = !isCompareMode
+                                        },
+                                        trailingIcon = {
+                                            if (isCompareMode) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                    )
                                     DropdownMenuItem(
                                         text = { Text("Импорт списка") },
                                         onClick = {
@@ -422,32 +445,46 @@ fun BarcodeScannerScreen() {
                         onExposureChange = { cameraExposureIndex = it },
                         onTorchChange = { cameraTorchEnabled = it },
                         onBarcodeFound = { barcodeValue, imagePath ->
-                            val existingIndex = barcodeList.indexOfFirst { it.code == barcodeValue }
-                            if (existingIndex != -1) {
-                                val existingItem = barcodeList[existingIndex]
-                                existingItem.imagePath?.let { oldPath ->
-                                    if (oldPath.startsWith("/") && File(oldPath).exists()) {
-                                        File(oldPath).delete()
+                            if (!isCompareMode) {
+                                val existingIndex = barcodeList.indexOfFirst { it.code == barcodeValue }
+                                if (existingIndex != -1) {
+                                    val existingItem = barcodeList[existingIndex]
+                                    existingItem.imagePath?.let { oldPath ->
+                                        if (oldPath.startsWith("/") && File(oldPath).exists()) {
+                                            File(oldPath).delete()
+                                        }
                                     }
-                                }
-                                barcodeList.removeAt(existingIndex)
-                                barcodeList.add(
-                                    BarcodeItem(
-                                        id = existingItem.id,
-                                        code = barcodeValue,
-                                        imagePath = imagePath,
-                                        isSelected = existingItem.isSelected
+                                    barcodeList.removeAt(existingIndex)
+                                    barcodeList.add(
+                                        BarcodeItem(
+                                            id = existingItem.id,
+                                            code = barcodeValue,
+                                            imagePath = imagePath,
+                                            isSelected = existingItem.isSelected
+                                        )
                                     )
-                                )
-                                Toast.makeText(
-                                    context,
-                                    "Штрихкод уже есть в списке, фото обновлено",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } else {
-                                barcodeList.add(BarcodeItem(code = barcodeValue, imagePath = imagePath))
+                                    Toast.makeText(
+                                        context,
+                                        "Штрихкод уже есть в списке, фото обновлено",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    barcodeList.add(BarcodeItem(code = barcodeValue, imagePath = imagePath))
+                                }
+                                saveBarcodeList(context, barcodeList)
                             }
-                            saveBarcodeList(context, barcodeList)
+                        },
+                        onBarcodeDetected = { code: String ->
+                            if (isCompareMode && barcodeList.any { it.code == code }) {
+                                val now = System.currentTimeMillis()
+                                if (lastNotifiedBarcode != code || now - lastNotificationTime > 2000) {
+                                    lastNotifiedBarcode = code
+                                    lastNotificationTime = now
+                                    @Suppress("DEPRECATION")
+                                    (context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator)?.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
+                                    Toast.makeText(context, "Найдено в списке: $code", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         },
                         onClose = { isCameraOpen = false },
                         onAfterPhotoAction = { saved ->
