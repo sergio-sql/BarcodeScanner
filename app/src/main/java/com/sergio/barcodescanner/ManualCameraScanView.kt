@@ -6,6 +6,8 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.media.MediaActionSound
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import android.content.pm.ActivityInfo
 import androidx.annotation.OptIn
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -164,6 +166,14 @@ fun ManualCameraScanView(
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
     var capturedBarcode by remember { mutableStateOf<String?>(null) }
     var isPreviewOpen by remember { mutableStateOf(false) }
+
+    val activity = context as ComponentActivity
+
+    LaunchedEffect(isPreviewOpen) {
+        if (!isPreviewOpen) {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
 
     fun captureBarcode() {
         if (detectedBarcode != null && !isCapturing && !isPreviewOpen) {
@@ -549,6 +559,15 @@ fun ManualCameraScanView(
                     capturedImagePath = null
                     isPreviewOpen = false
                     onAfterPhotoAction?.invoke(false)
+                },
+                onImageOrientationChange = { isLandscape ->
+                    if (isPreviewOpen) {
+                        activity.requestedOrientation = if (isLandscape) {
+                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        } else {
+                            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        }
+                    }
                 }
             )
         }
