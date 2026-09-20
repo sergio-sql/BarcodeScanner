@@ -1,4 +1,4 @@
-package com.sergio.barcodescanner
+﻿package com.sergio.barcodescanner
 
 import android.Manifest
 import android.content.ClipData
@@ -453,6 +453,19 @@ fun BarcodeScannerScreen() {
                     .fillMaxSize()
                     .padding(if (isCameraOpen) PaddingValues(0.dp) else paddingValues)
             ) {
+                val checkBarcodeInList: (String) -> Boolean = { code ->
+                    val compareBySuffix = ThemePreference.isCompareBySuffix(context)
+                    val suffixLength = ThemePreference.getCompareSuffixLength(context)
+                    if (compareBySuffix) {
+                        barcodeList.any { item ->
+                            item.code.length >= suffixLength && code.length >= suffixLength &&
+                            item.code.takeLast(suffixLength) == code.takeLast(suffixLength)
+                        }
+                    } else {
+                        barcodeList.any { it.code == code }
+                    }
+                }
+
                 if (isCameraOpen) {
                     ManualCameraScanView(
                         scannedCount = barcodeList.size,
@@ -493,14 +506,19 @@ fun BarcodeScannerScreen() {
                             }
                         },
                         onBarcodeDetected = { code: String ->
-                            if (isCompareMode && barcodeList.any { it.code == code }) {
+                            if (isCompareMode) {
+                                val matches = checkBarcodeInList(code)
                                 val now = System.currentTimeMillis()
                                 if (lastNotifiedBarcode != code || now - lastNotificationTime > 2000) {
                                     lastNotifiedBarcode = code
                                     lastNotificationTime = now
-                                    @Suppress("DEPRECATION")
-                                    (context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator)?.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
-                                    Toast.makeText(context, "Найдено в списке: $code", Toast.LENGTH_SHORT).show()
+                                    if (matches) {
+                                        @Suppress("DEPRECATION")
+                                        (context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator)?.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
+                                        Toast.makeText(context, "Найдено в списке: $code", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Не в списке: $code", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
                         },
@@ -509,7 +527,9 @@ fun BarcodeScannerScreen() {
                             if (saved) {
                                 Toast.makeText(context, "Фото сохранено", Toast.LENGTH_SHORT).show()
                             }
-                        }
+                        },
+                        isCompareMode = isCompareMode,
+                        containsBarcode = checkBarcodeInList
                     )
                 } else {
                     if (barcodeList.isEmpty()) {

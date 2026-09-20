@@ -1,4 +1,4 @@
-package com.sergio.barcodescanner
+﻿package com.sergio.barcodescanner
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -122,7 +122,9 @@ fun ManualCameraScanView(
     onBarcodeFound: (String, String?) -> Unit,
     onClose: () -> Unit,
     onAfterPhotoAction: ((Boolean) -> Unit)? = null,
-    onBarcodeDetected: ((String) -> Unit)? = null
+    onBarcodeDetected: ((String) -> Unit)? = null,
+    isCompareMode: Boolean = false,
+    containsBarcode: ((String) -> Boolean)? = null
 ) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -233,8 +235,8 @@ fun ManualCameraScanView(
         }
     }
 
-    LaunchedEffect(detectedBarcode) {
-        if (detectedBarcode != null) {
+    LaunchedEffect(detectedBarcode, isCompareMode) {
+        if (detectedBarcode != null && !isCompareMode) {
             captureBarcode()
         }
     }
@@ -452,8 +454,10 @@ fun ManualCameraScanView(
                     val right = normalizedRight * scale + offsetX
                     val bottom = normalizedBottom * scale + offsetY
 
+                    val barcode = detectedBarcode
+                    val barcodeInListView = barcode != null && (containsBarcode?.invoke(barcode) ?: false)
                     drawRect(
-                        color = Color.Green,
+                        color = if (barcodeInListView) Color.Green else Color.Red,
                         topLeft = Offset(left, top),
                         size = androidx.compose.ui.geometry.Size(kotlin.math.max(0f, right - left), kotlin.math.max(0f, bottom - top)),
                         style = Stroke(width = 8f)
@@ -504,7 +508,7 @@ fun ManualCameraScanView(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 4.dp)
                 ) {
                     IconButton(onClick = {
                         torchEnabled = !torchEnabled
@@ -573,3 +577,8 @@ fun ManualCameraScanView(
         }
     }
 }
+
+
+
+
+
