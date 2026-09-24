@@ -53,8 +53,7 @@ fun FullScreenImagePreview(
     onDismiss: () -> Unit,
     showActions: Boolean = true,
     barcodeList: List<BarcodeItem>? = null,
-    currentIndex: Int = 0,
-    onImageOrientationChange: ((isLandscape: Boolean) -> Unit)? = null
+    currentIndex: Int = 0
 ) {
     val context = LocalContext.current
     val bitmapState = remember { mutableStateOf<android.graphics.Bitmap?>(null) }
@@ -119,12 +118,6 @@ fun FullScreenImagePreview(
             val fitScale = minOf(viewportSize.width / bitmap.width, viewportSize.height / bitmap.height)
             maxScaleState.floatValue = (1f / fitScale).coerceAtLeast(1f)
             scaleState.floatValue = 1f
-        }
-    }
-
-    LaunchedEffect(bitmap) {
-        bitmap?.let { bmp ->
-            onImageOrientationChange?.invoke(bmp.width > bmp.height)
         }
     }
 

@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -46,7 +45,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
@@ -214,10 +212,8 @@ fun BarcodeScannerScreen() {
     var isCompareMode by rememberSaveable { mutableStateOf(false) }
     var lastNotifiedBarcode by remember { mutableStateOf<String?>(null) }
     var lastNotificationTime by remember { mutableStateOf(0L) }
-    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     var isCameraOpen by remember { mutableStateOf(false) }
-    var imageOrientationLandscape by remember { mutableStateOf<Boolean?>(null) }
 
     var cameraZoomRatio by rememberSaveable { mutableFloatStateOf(1f) }
     var cameraExposureIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -266,13 +262,6 @@ fun BarcodeScannerScreen() {
     }
 
     val onDeleteClick = {
-        val selectedCount = barcodeList.count { it.isSelected }
-        if (selectedCount > 0) {
-            showDeleteConfirmDialog = true
-        }
-    }
-
-    val confirmDelete = {
         val toRemove = barcodeList.filter { it.isSelected }.toList()
         toRemove.forEach { item ->
             item.imagePath?.let { path ->
@@ -284,21 +273,14 @@ fun BarcodeScannerScreen() {
             barcodeList[i] = item.copy(isSelected = false)
         }
         saveBarcodeList(context, barcodeList)
-        showDeleteConfirmDialog = false
     }
 
     val activity = context as ComponentActivity
-    LaunchedEffect(isCameraOpen, currentImagePath, imageOrientationLandscape) {
-        activity.requestedOrientation = when {
-            currentImagePath != null && imageOrientationLandscape != null -> {
-                if (imageOrientationLandscape == true) {
-                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                } else {
-                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                }
-            }
-            isCameraOpen || currentImagePath != null -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            else -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    LaunchedEffect(isCameraOpen, currentImagePath) {
+        activity.requestedOrientation = if (isCameraOpen || currentImagePath != null) {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
     }
 
@@ -626,33 +608,10 @@ fun BarcodeScannerScreen() {
             onDismiss = {
                 currentImagePath = null
                 viewerBarcode = null
-                imageOrientationLandscape = null
             },
             showActions = false,
             barcodeList = barcodeList,
-            currentIndex = if (listIndex >= 0) listIndex else 0,
-            onImageOrientationChange = { isLandscape ->
-                imageOrientationLandscape = isLandscape
-            }
-        )
-    }
-
-    if (showDeleteConfirmDialog) {
-        val selectedCount = barcodeList.count { it.isSelected }
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete() }) {
-                    Text("Да")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Нет")
-                }
-            },
-            title = { Text("Подтверждение") },
-            text = { Text("Вы уверены, что хотите удалить $selectedCount выбранных элементов?") }
+            currentIndex = if (listIndex >= 0) listIndex else 0
         )
     }
 }
