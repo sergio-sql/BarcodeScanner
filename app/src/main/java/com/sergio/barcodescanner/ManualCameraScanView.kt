@@ -537,8 +537,3 @@ fun ManualCameraScanView(
         }
     }
 }
-
-
-
-
-

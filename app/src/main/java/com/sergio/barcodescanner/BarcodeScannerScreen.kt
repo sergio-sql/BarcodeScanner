@@ -638,7 +638,7 @@ fun BarcodeScannerScreen() {
                 }
             },
             title = { Text("Подтверждение") },
-            text = { Text("Вы уверены, что хотите удалить $selectedCount выбранных элементов?") }
+            text = { Text("Вы уверены, что хотите удалить $selectedCount штрихкодов?") }
         )
     }
 }
