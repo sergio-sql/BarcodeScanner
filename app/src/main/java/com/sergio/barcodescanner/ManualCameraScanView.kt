@@ -112,10 +112,8 @@ private fun cropToBoundingBox(
 fun ManualCameraScanView(
     scannedCount: Int,
     initialZoomRatio: Float = 1f,
-    initialExposureIndex: Int = 0,
     initialTorchEnabled: Boolean = false,
     onZoomChange: (Float) -> Unit = {},
-    onExposureChange: (Int) -> Unit = {},
     onTorchChange: (Boolean) -> Unit = {},
     onBarcodeFound: (String, String?) -> Unit,
     onClose: () -> Unit,
@@ -135,7 +133,6 @@ fun ManualCameraScanView(
     var isCapturing by remember { mutableStateOf(false) }
     var torchEnabled by remember { mutableStateOf(initialTorchEnabled) }
     var zoomRatio by remember { mutableFloatStateOf(initialZoomRatio) }
-    var exposureIndex by remember { mutableIntStateOf(initialExposureIndex) }
     var camera by remember { mutableStateOf<Camera?>(null) }
 
     var detectedBarcode by remember { mutableStateOf<String?>(null) }
@@ -343,7 +340,6 @@ fun ManualCameraScanView(
                             camera = boundCamera
                             boundCamera.cameraControl.enableTorch(torchEnabled)
                             boundCamera.cameraControl.setZoomRatio(zoomRatio)
-                            boundCamera.cameraControl.setExposureCompensationIndex(exposureIndex)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -510,27 +506,10 @@ fun ManualCameraScanView(
                             contentDescription = if (torchEnabled) "Выключить фонарик" else "Включить фонарик",
                             tint = if (torchEnabled) Color.Yellow else Color.White
                         )
-                    }
-                }
-
-                Slider(
-                    value = exposureIndex.toFloat(),
-                    onValueChange = {
-                        exposureIndex = it.toInt()
-                        onExposureChange(exposureIndex)
-                    },
-                    valueRange = -10f..10f,
-                    steps = 20,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                )
-                LaunchedEffect(exposureIndex) {
-                    camera?.cameraControl?.setExposureCompensationIndex(exposureIndex)
-                }
-            }
+}
         }
-
+    }
+            }
         if (isPreviewOpen) {
             val currentBarcode = capturedBarcode
             val currentPath = capturedImagePath

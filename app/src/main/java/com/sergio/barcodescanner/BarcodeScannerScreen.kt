@@ -216,7 +216,6 @@ fun BarcodeScannerScreen() {
     var isCameraOpen by remember { mutableStateOf(false) }
 
     var cameraZoomRatio by rememberSaveable { mutableFloatStateOf(1f) }
-    var cameraExposureIndex by rememberSaveable { mutableIntStateOf(0) }
     var cameraTorchEnabled by rememberSaveable { mutableStateOf(false) }
 
     var hasCameraPermission by remember {
@@ -452,10 +451,8 @@ fun BarcodeScannerScreen() {
                     ManualCameraScanView(
                         scannedCount = barcodeList.size,
                         initialZoomRatio = cameraZoomRatio,
-                        initialExposureIndex = cameraExposureIndex,
                         initialTorchEnabled = cameraTorchEnabled,
                         onZoomChange = { cameraZoomRatio = it },
-                        onExposureChange = { cameraExposureIndex = it },
                         onTorchChange = { cameraTorchEnabled = it },
                         onBarcodeFound = { barcodeValue, imagePath ->
                             if (!isCompareMode) {
