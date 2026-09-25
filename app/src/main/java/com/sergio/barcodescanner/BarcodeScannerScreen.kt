@@ -446,15 +446,20 @@ fun BarcodeScannerScreen() {
                     .padding(if (isCameraOpen) PaddingValues(0.dp) else paddingValues)
             ) {
                 val checkBarcodeInList: (String) -> Boolean = { code ->
-                    val compareBySuffix = ThemePreference.isCompareBySuffix(context)
-                    val suffixLength = ThemePreference.getCompareSuffixLength(context)
-                    if (compareBySuffix) {
-                        barcodeList.any { item ->
-                            item.code.length >= suffixLength && code.length >= suffixLength &&
-                            item.code.takeLast(suffixLength) == code.takeLast(suffixLength)
+                    try {
+                        val compareBySuffix = ThemePreference.isCompareBySuffix(context)
+                        val suffixLength = ThemePreference.getCompareSuffixLength(context)
+                        if (compareBySuffix) {
+                            barcodeList.any { item ->
+                                item.code.length >= suffixLength && code.length >= suffixLength &&
+                                item.code.takeLast(suffixLength) == code.takeLast(suffixLength)
+                            }
+                        } else {
+                            barcodeList.any { it.code == code }
                         }
-                    } else {
-                        barcodeList.any { it.code == code }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        false
                     }
                 }
 
@@ -497,18 +502,26 @@ fun BarcodeScannerScreen() {
                         },
                         onBarcodeDetected = { code: String ->
                             if (isCompareMode) {
-                                val matches = checkBarcodeInList(code)
-                                val now = System.currentTimeMillis()
-                                if (lastNotifiedBarcode != code || now - lastNotificationTime > 2000) {
-                                    lastNotifiedBarcode = code
-                                    lastNotificationTime = now
-                                    if (matches) {
-                                        @Suppress("DEPRECATION")
-                                        (context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator)?.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
-                                        Toast.makeText(context, "Найдено в списке: $code", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "Не в списке: $code", Toast.LENGTH_SHORT).show()
+                                try {
+                                    val matches = checkBarcodeInList(code)
+                                    val now = System.currentTimeMillis()
+                                    if (lastNotifiedBarcode != code || now - lastNotificationTime > 2000) {
+                                        lastNotifiedBarcode = code
+                                        lastNotificationTime = now
+                                        if (matches) {
+                                            try {
+                                                @Suppress("DEPRECATION")
+                                                (context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator)?.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                            Toast.makeText(context, "Найдено в списке: $code", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Не в списке: $code", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
                                 }
                             }
                         },

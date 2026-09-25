@@ -5,6 +5,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.media.MediaActionSound
+import android.view.Display
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.camera.core.Camera
@@ -139,6 +141,7 @@ fun ManualCameraScanView(
     var detectedRect by remember { mutableStateOf<Rect?>(null) }
     var detectedImageSize by remember { mutableStateOf<android.util.Size?>(null) }
     var detectedRotation by remember { mutableIntStateOf(0) }
+    var displayRotation by remember { mutableIntStateOf(0) }
     var scanArea by remember { mutableStateOf<Rect?>(null) }
     var crosshairArea by remember { mutableStateOf<Rect?>(null) }
     var imageSize by remember { mutableStateOf<android.util.Size?>(null) }
@@ -158,6 +161,12 @@ fun ManualCameraScanView(
         val crossLeft = left + (areaW - crossW) / 2
         val crossTop = top + (areaH - crossH) / 2
         crosshairArea = Rect(crossLeft, crossTop, crossLeft + crossW, crossTop + crossH)
+    }
+
+    LaunchedEffect(Unit) {
+        val windowManager = context.getSystemService(WindowManager::class.java)
+        val display = windowManager.defaultDisplay
+        displayRotation = display.rotation
     }
 
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
@@ -415,10 +424,14 @@ fun ManualCameraScanView(
                     val viewW = size.width
                     val viewH = size.height
 
-                    val rotation = detectedRotation
+                    val sensorRotation = detectedRotation
+                    val displayRot = displayRotation
+                    val totalRotation = (sensorRotation - displayRot * 90) % 360
+                    val normalizedRotation = if (totalRotation < 0) totalRotation + 360 else totalRotation
+
                     val srcW: Float
                     val srcH: Float
-                    if (rotation == 90 || rotation == 270) {
+                    if (normalizedRotation == 90 || normalizedRotation == 270) {
                         srcW = imageH
                         srcH = imageW
                     } else {
@@ -435,10 +448,43 @@ fun ManualCameraScanView(
                     val normalizedRight = maxOf(rect.left, rect.right).toFloat()
                     val normalizedBottom = maxOf(rect.top, rect.bottom).toFloat()
 
-                    val left = normalizedLeft * scale + offsetX
-                    val top = normalizedTop * scale + offsetY
-                    val right = normalizedRight * scale + offsetX
-                    val bottom = normalizedBottom * scale + offsetY
+                    val left: Float
+                    val top: Float
+                    val right: Float
+                    val bottom: Float
+
+                    when (normalizedRotation) {
+                        0 -> {
+                            left = normalizedLeft * scale + offsetX
+                            top = normalizedTop * scale + offsetY
+                            right = normalizedRight * scale + offsetX
+                            bottom = normalizedBottom * scale + offsetY
+                        }
+                        90 -> {
+                            left = (imageH - normalizedBottom) * scale + offsetX
+                            top = normalizedLeft * scale + offsetY
+                            right = (imageH - normalizedTop) * scale + offsetX
+                            bottom = normalizedRight * scale + offsetY
+                        }
+                        180 -> {
+                            left = (imageW - normalizedRight) * scale + offsetX
+                            top = (imageH - normalizedBottom) * scale + offsetY
+                            right = (imageW - normalizedLeft) * scale + offsetX
+                            bottom = (imageH - normalizedTop) * scale + offsetY
+                        }
+                        270 -> {
+                            left = normalizedTop * scale + offsetX
+                            top = (imageW - normalizedRight) * scale + offsetY
+                            right = normalizedBottom * scale + offsetX
+                            bottom = (imageW - normalizedLeft) * scale + offsetY
+                        }
+                        else -> {
+                            left = normalizedLeft * scale + offsetX
+                            top = normalizedTop * scale + offsetY
+                            right = normalizedRight * scale + offsetX
+                            bottom = normalizedBottom * scale + offsetY
+                        }
+                    }
 
                     val barcode = detectedBarcode
                     val barcodeInListView = barcode != null && (containsBarcode?.invoke(barcode) ?: false)
