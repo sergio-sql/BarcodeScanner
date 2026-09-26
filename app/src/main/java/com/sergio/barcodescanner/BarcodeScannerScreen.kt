@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.widget.Toast
@@ -509,12 +510,17 @@ fun BarcodeScannerScreen() {
                                         lastNotifiedBarcode = code
                                         lastNotificationTime = now
                                         if (matches) {
-                                            try {
-                                                @Suppress("DEPRECATION")
-                                                (context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator)?.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
-                                            } catch (e: Exception) {
-                                                e.printStackTrace()
-                                            }
+                                             try {
+                                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                                     val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                                                     vibratorManager?.defaultVibrator?.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
+                                                 } else {
+                                                     @Suppress("DEPRECATION")
+                                                     (context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)?.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
+                                                 }
+                                             } catch (e: Exception) {
+                                                 e.printStackTrace()
+                                             }
                                             Toast.makeText(context, "Найдено в списке: $code", Toast.LENGTH_SHORT).show()
                                         } else {
                                             Toast.makeText(context, "Не в списке: $code", Toast.LENGTH_SHORT).show()
